@@ -1,0 +1,79 @@
+player: {
+    hp: 50,
+    inventory: [
+        {
+            id: "dagger",
+            x: 0,
+            y: 0,
+            name: "Dolk",
+            description: "Basis schade tegen monsters",
+            useTimes: infinite,
+            value: 10,
+
+            actions: {}
+        }
+    ]
+}
+
+levels: [
+    {
+        layout: {
+            | * * * * * * * *
+            | * . . . . . . *
+            | * s . . . . . *
+            | * . . . . . e *
+            | * . . . . . . *
+            | * * * * * * * *
+        },
+
+        items: [
+            {
+                id: "sword",
+                x: 2,
+                y: 3,
+                name: "Zwaard",
+                description: "Meer schade tegen monsters",
+                useTimes: infinite,
+                value: 25,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(sword),
+                    [] leave()
+                }
+            },
+            {
+                id: "potion",
+                x: 3,
+                y: 1,
+                name: "Levensbrouwsel",
+                description: "Geeft een aantal levenspunten terug",
+                useTimes: 1,
+                value: 50,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(potion),
+                    [] leave()
+                }
+            }
+        ],
+
+        entities: [
+            {
+                id: "devil",
+                x: 4,
+                y: 3,
+                name: "Duivel",
+                description: "Een monster uit de hel",
+                hp: 50,
+                damage: 5,
+
+                actions: {
+                    [inventoryContains(potion)] increasePlayerHp(potion),
+                    [inventoryContains(sword)] decreaseHp(m1, sword),
+                    [] decreaseHp(m1, dagger),
+                    [] leave()
+                }
+            }
+        ]
+    }
+]

@@ -1,0 +1,51 @@
+player: {
+    hp: 50,
+    inventory: []
+}
+
+levels: [
+    {
+        layout: {
+            | * * *
+            | * e *
+            | * . *
+            | * . *
+            | * . *
+            | * . *
+            | * s *
+            | * * *
+        },
+
+        items: [
+            {
+                id: "key",
+                x: 1,
+                y: 2,
+                name: "Sleutel",
+                description: "Deze sleutel kan een deur openen",
+                useTimes: 1,
+                value: 0,
+                actions: {
+                    [not(inventoryFull())] retrieveItem(key),
+                    [] leave()
+                }
+            }
+        ],
+
+        entities: [
+            {
+                id: "door",
+                x: 1,
+                y: 4,
+                name: "Deur",
+                description: "Deze deur kan geopend worden met een sleutel",
+                direction: up,
+
+                actions: {
+                    [inventoryContains(key)] useItem(key),
+                    [] leave()
+                }
+            }
+        ]
+    }
+]
