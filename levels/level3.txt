@@ -65,7 +65,7 @@ levels: [
                 name: "Duivel",
                 description: "Een monster uit de hel",
                 hp: 50,
-                damage: 5,
+                value: 5,
 
                 actions: {
                     [inventoryContains(potion)] increasePlayerHp(potion),
