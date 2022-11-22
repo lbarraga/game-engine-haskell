@@ -1,18 +1,5 @@
-player: {
+{player: {
     hp: 50,
-    inventory: []
-}
+    inventory: ["iiii", "hqhqh"]
+}}
 
-levels: [
-    {
-        layout: {
-            | * * * * * *
-            | * s . . e *
-            | * * * * * *
-        },
-        
-        items: [],
-
-        entities: []
-    }
-]
