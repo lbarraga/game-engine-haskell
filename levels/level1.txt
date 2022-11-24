@@ -1,5 +1,5 @@
-{player: {
+player: {
     hp: 50,
-    inventory: ["iiii", "hqhqh"]
-}}
+    inventory: ["hallo", "ik", "ben", "lukas", "barragan torres"]
+}
 
