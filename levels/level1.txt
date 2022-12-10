@@ -3,3 +3,16 @@ player: {
     inventory: []
 }
 
+levels: [
+    {
+        layout: {
+            | * * * * * *
+            | * s . . e *
+            | * * * * * *
+        },
+        
+        items: [],
+
+        entities: []
+    }
+]

@@ -39,7 +39,7 @@ levels: [
                 y: 4,
                 name: "Deur",
                 description: "Deze deur kan geopend worden met een sleutel",
-                direction: up,
+                direction: right,
 
                 actions: {
                     [inventoryContains(key)] useItem(key),
