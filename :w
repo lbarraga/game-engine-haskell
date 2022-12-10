@@ -4,10 +4,8 @@ import Numeric (readFloat, readHex, readSigned)
 import Text.ParserCombinators.Parsec
 import System.Exit (exitFailure)
 import System.IO
-import Control.Concurrent (waitQSem)
-import GHC.Read (list)
 
-parse :: String -> IO GameLayout 
+parse :: String -> IO [GameObjectField]
 parse fileName = parseFromFile pText fileName >>= either report return
   where report err = exitFailure
 
@@ -21,12 +19,10 @@ main = do
 data GameObjectField = Id String 
                 | X Int
                 | Y Int
-                | Hp Int
                 | Name String
                 | Description String     
                 | UseTimes UseTime
                 | ObjectValue Int
-                | Inventory [GameObject]
                 | GameActions [GameAction]
                 deriving (Eq, Show)
 
@@ -41,8 +37,6 @@ data Arguments = Function GameFunction | GameIds [GameId]
 data GameFunction = GameFuntion Name Arguments 
     deriving (Eq, Show)
 
-type GameObject = [GameObjectField]
-
 type Conditions = [GameFunction]
 type Action = GameFunction
 data GameAction = GameAction Conditions Action 
@@ -50,54 +44,15 @@ data GameAction = GameAction Conditions Action
 
 pGameObjectField :: CharParser () GameObjectField
 pGameObjectField = value <* spaces
-    where value = Id          <$> pField pString "id"
-              <|> X           <$> pField pNumber "x"
-              <|> Y           <$> pField pNumber "y"
-              <|> Hp          <$> pField pNumber "hp"
-              <|> Name        <$> pField pString "name"
-              <|> Description <$> pField pString "description"
-              <|> UseTimes    <$> pField pUseTime "useTimes"
-              <|> ObjectValue <$> pField pNumber "value"
-              <|> GameActions <$> pField pGameActions "actions"
-              <|> Inventory   <$> pField pInventory "inventory"
+    where value = Id          <$> pField "id" pString
+              <|> X           <$> pField "x" pNumber
+              <|> Y           <$> pField "y" pNumber
+              <|> Name        <$> pField "name" pString
+              <|> Description <$> pField "description" pString
+              <|> UseTimes    <$> pField "useTimes" pUseTime
+              <|> ObjectValue <$> pField "value" pNumber
+              <|> GameActions  <$> pField "actions" pGameActions
               <?> "GameObjectField"
-
-type PlayerAttributes = [GameObjectField]
-data GamePlayer = Player PlayerAttributes deriving (Eq, Show)
-
-data GameLayout = Layout [[Char]] deriving (Eq, Show)
-
-pWall, pEmpty, pStart, pEnd :: CharParser () Char
-pWall  = char '*'
-pEmpty = char '.'
-pStart = char 's'
-pEnd   = char 'e'
-
-pLayoutField :: CharParser () GameLayout
-pLayoutField = spaces *> pField (between (char '{') (char '}') pLayout) "layout"
-
-pLayoutObject :: CharParser () Char
-pLayoutObject = pWall <|> pEmpty <|> pStart <|> pEnd
-
-pLayoutRow :: CharParser () [Char]
-pLayoutRow = pLayoutObject `sepBy` char ' '
-
-pLayout :: CharParser () GameLayout
-pLayout = Layout <$> (delim *> (pLayoutRow `sepBy` try delim) <* fDelim)
-    where delim = fDelim *> string "| "
-          fDelim = char '\n' *> many (char ' ')
-
-pPlayer :: CharParser () GamePlayer
-pPlayer = Player <$> pField (pObjectOf pGameObjectField) "player"
-
-pGameObjects :: CharParser () [GameObject]
-pGameObjects = pListOf pGameObject 
-
-pGameObject :: CharParser () GameObject
-pGameObject = pObjectOf pGameObjectField
-
-pInventory :: CharParser () [GameObject]
-pInventory = pListOf pGameObject
 
 pGameActions :: CharParser  () [GameAction]
 pGameActions = pObjectOf pGameAction
@@ -106,16 +61,16 @@ pGameAction :: CharParser () GameAction
 pGameAction = GameAction <$> pListOf pGameFunction <*> (spaces *> pGameFunction)
 
 pGameFunction :: CharParser () GameFunction
-pGameFunction = GameFuntion <$> pFunctionName <*> pFunctionArguments
+pGameFunction = GameFuntion <$> pFunctionName <*> pFunctionArguments <* char ')')
 
 pFunctionName :: CharParser () String
 pFunctionName = pCharsButNot ",(]" <* char '(' 
 
 pFunctionArguments :: CharParser () Arguments
-pFunctionArguments = (GameIds <$> try pGameIds) <|> (Function <$> pGameFunction <* char ')') 
+pFunctionArguments = (GameIds <$> pGameIds) <|> (Function <$> pGameFunction) 
 
 pGameIds :: CharParser () [String]
-pGameIds = (pSingleGameId `sepBy` char ',') <* char ')'
+pGameIds = pSingleGameId `sepBy` char ',' 
 
 pSingleGameId :: CharParser () String
 pSingleGameId  = spaces *> pCharsButNot [',', ')', ' ', '('] <* spaces
@@ -124,11 +79,11 @@ pCharsButNot :: [Char] -> CharParser () String
 pCharsButNot excluded = many1 $ satisfy (`notElem` excluded)
 
 -- JSON tekst bestaat uit ofwel een object ofwel een array, met eventueel whitespace
-pText :: CharParser () GameLayout 
-pText = pLayoutField
+pText :: CharParser () [GameObjectField] 
+pText = spaces *> pObjectOf pGameObjectField
 
-pField :: CharParser () a -> String -> CharParser () a
-pField valueParser key = try $ (string key >> char ':' >> spaces) >> valueParser
+pField :: String -> CharParser () a -> CharParser () a
+pField key valueParser = (string key >> char ':' >> spaces) >> valueParser
 
 pString :: CharParser () String
 pString = between (char '\"') (char '\"') (pCharsButNot ['"'])

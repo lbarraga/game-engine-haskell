@@ -1,33 +1,4 @@
-player: {
-    hp: 50,
-    inventory: [
-        {
-            id: "dagger",
-            x: 0,
-            y: 0,
-            name: "Dolk",
-            description: "Basis schade tegen monsters",
-            useTimes: infinite,
-            value: 10,
-
-            actions: {}
-        }
-    ]
-}
-
-levels: [
-    {
-        layout: {
-            | * * * * * * * *
-            | * . . . . . . *
-            | * s . . . . . *
-            | * . . . . . e *
-            | * . . . . . . *
-            | * * * * * * * *
-        },
-
-        items: [
-            {
+{
                 id: "sword",
                 x: 2,
                 y: 3,
