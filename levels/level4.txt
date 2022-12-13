@@ -1,0 +1,134 @@
+player: {
+    hp: 50,
+    inventory: [
+        {
+            id: "dagger",
+            x: 0,
+            y: 0,
+            name: "Dolk",
+            description: "Basis schade tegen monsters",
+            useTimes: infinite,
+            value: 10,
+
+            actions: {}
+        }
+    ]
+}
+
+levels: [
+    {
+        layout: {
+            | * * * * * *
+            | * s . . e *
+            | * * * * * *
+        },
+        
+        items: [],
+
+        entities: []
+    },
+    {
+        layout: {
+            | * * *
+            | * e *
+            | * . *
+            | * . *
+            | * . *
+            | * . *
+            | * s *
+            | * * *
+        },
+
+        items: [
+            {
+                id: "key",
+                x: 1,
+                y: 2,
+                name: "Sleutel",
+                description: "Deze sleutel kan een deur openen",
+                useTimes: 1,
+                value: 0,
+                actions: {
+                    [not(inventoryFull())] retrieveItem(key),
+                    [] leave()
+                }
+            }
+        ],
+
+        entities: [
+            {
+                id: "door",
+                x: 1,
+                y: 4,
+                name: "Deur",
+                description: "Deze deur kan geopend worden met een sleutel",
+                direction: up,
+
+                actions: {
+                    [inventoryContains(key)] useItem(key),
+                    [] leave()
+                }
+            }
+        ]
+    },
+    {
+        layout: {
+            | * * * * * * * *
+            | * . . . . . . *
+            | * s . . . . . *
+            | * . . . . . e *
+            | * . . . . . . *
+            | * * * * * * * *
+        },
+
+        items: [
+            {
+                id: "sword",
+                x: 2,
+                y: 3,
+                name: "Zwaard",
+                description: "Meer schade tegen monsters",
+                useTimes: infinite,
+                value: 25,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(sword),
+                    [] leave()
+                }
+            },
+            {
+                id: "potion",
+                x: 3,
+                y: 1,
+                name: "Levensbrouwsel",
+                description: "Geeft een aantal levenspunten terug",
+                useTimes: 1,
+                value: 50,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(potion),
+                    [] leave()
+                }
+            }
+        ],
+
+        entities: [
+            {
+                id: "devil",
+                x: 4,
+                y: 3,
+                name: "Duivel",
+                description: "Een monster uit de hel",
+                hp: 50,
+                value: 5,
+
+                actions: {
+                    [inventoryContains(potion)] increasePlayerHp(potion),
+                    [inventoryContains(sword)] decreaseHp(devil, sword),
+                    [] decreaseHp(devil, dagger),
+                    [] leave()
+                }
+            }
+        ]
+    }
+]

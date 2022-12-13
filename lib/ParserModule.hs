@@ -1,95 +1,46 @@
-module VoorbeeldModule where
+module ParserModule where 
 
 import Numeric (readFloat, readHex, readSigned)
 import Text.ParserCombinators.Parsec
 import System.Exit (exitFailure)
+import GHC.IO (unsafePerformIO)
+import TypeModule
 
-parse :: String -> IO Game
-parse fileName = parseFromFile pGame fileName >>= either report return
-  where report err = exitFailure
+parseGameFile :: String -> Either ParseError Game
+parseGameFile = unsafePerformIO . parseFromFile pGame
 
-main :: IO ()
-main = do
-     result <- parseFromFile pGame "levels/level2.txt"
-     case result of
-       Left err     -> print err
-       Right output -> print output
+pItemList :: CharParser () [Item]
+pItemList = pListOf $ between (char '{' <* spaces) (char '}') pItem 
 
--- | een veld van een object of van een entitie. 
--- | omdat objecten en entities heel veel gemeenschappelijke
--- | velden hebben, is er geen onderscheid gemaakt.
-data ObjectField = Id String 
-                | X Int
-                | Y Int
-                | Hp Int
-                | Name String
-                | Description String     
-                | UseTimes UseTime
-                | Direction Dir
-                | ObjectValue Int
-                | Inventory [Object]
-                | Actions [Action]
-                deriving (Eq, Show)
+pItem :: CharParser () Item
+pItem = Item <$> pListElement (pField pString "id")
+             <*> pListElement (pField pNumber "x")
+             <*> pListElement (pField pNumber "y")
+             <*> pListElement (pField pString "name")
+             <*> pListElement (pField pString "description") 
+             <*> pListElement (pField pUseTime "useTimes")
+             <*> pListElement (pField pNumber "value")
+             <*> pListElement (pField pActions "actions")
 
--- | De richting van een object
-data Dir = U | D | L | R deriving (Eq, Show)
-data UseTime = Finite Int | Infinite deriving (Eq, Show)
+pEntitieList :: CharParser () [Entity]
+pEntitieList = pListOf $ between (char '{' <* spaces) (char '}') pEntity 
 
--- | een identifier van een object
-type Id = String
+pEntity :: CharParser () Entity
+pEntity = Entity <$> pListElement (pField pString "id") 
+                 <*> pListElement (pField pNumber "x")
+                 <*> pListElement (pField pNumber "y")
+                 <*> pListElement (pField pString "name")
+                 <*> pListElement (pField pString "description")
+                 <*> pMaybeListElement (pField pDirection "direction")
+                 <*> pMaybeListElement (pField pNumber "hp") 
+                 <*> pMaybeListElement (pField pNumber "value") 
+                 <*> pListElement (pField pActions "actions")
 
--- | Het argument van een functie is ofwel nog een functie (bv. bij not(...)),
--- | ofwel één of meerdere ids
-data Arguments = Function Function | Ids [Id] deriving (Eq, Show)
+pMaybeListElement :: CharParser () a -> CharParser () (Maybe a)
+pMaybeListElement parser = optionMaybe (try (pListElement parser))
 
--- | Een functie heeft een naam en argumenten
-data Function = Funtion {
-    name :: String,
-    arguments :: Arguments
-} deriving (Eq, Show)
-
--- | een object of entity
-type Object = [ObjectField]
-
--- | een actie is heeft bepaalde condities en een actie 
--- | om uit te voeren wanneer deze condities allemaal waar zijn
-data Action = Action {
-    conditions :: [Function],
-    action :: Function
-} deriving (Eq, Show)
-
--- | Parser voor ObjectField
-pObjectField :: CharParser () ObjectField
-pObjectField = value <* spaces
-    where value = Id          <$> pField pString    "id"
-              <|> X           <$> pField pNumber    "x"
-              <|> Y           <$> pField pNumber    "y"
-              <|> Hp          <$> pField pNumber    "hp"
-              <|> Name        <$> pField pString    "name"
-              <|> Description <$> pField pString    "description"
-              <|> Direction   <$> pField pDirection "direction"
-              <|> UseTimes    <$> pField pUseTime   "useTimes"
-              <|> ObjectValue <$> pField pNumber    "value"
-              <|> Actions     <$> pField pActions   "actions"
-              <|> Inventory   <$> pField pInventory "inventory"
-              <?> "ObjectField"
-
--- | Een speler heeft hp en een inventaris.
-data Player = Player{hp :: Int, attributes :: [Object]} deriving (Eq, Show)
-
--- | De level-layout
-type Layout = [[Char]]
-
--- | Een level bestaat uit een layout, 
--- | een lijst van objecten en een lijst van entities.
-data Level = Level {
-    layout :: Layout, 
-    items :: [Object], 
-    entities :: [Object]
-} deriving (Eq, Show) 
-
--- | Een Game heeft een speler en een lijst van levels.
-data Game = Game{player :: Player, levels :: [Level]} deriving (Eq, Show)
+pListElement :: CharParser () a -> CharParser () a
+pListElement valueParser = spaces *> valueParser <* (string ",\n" <|> string "\n" <* spaces)
 
 -- | Parser van de volledige game. Ook het ingangspunt van alle parsers.
 -- | Deze parser zal worden opgeroepen op het bestand.
@@ -102,17 +53,17 @@ pLevels = pField (pListOf (pBetween '{' '}' pLevel)) "levels"
 
 -- | Parsen van een enkel level (zonder '{' en '}')
 pLevel :: CharParser () Level
-pLevel = Level <$> (spaces *> pLayoutField <* char ',') 
-               <*> (spaces *> pItems <* char ',') 
-               <*> (spaces *> pEntities <* spaces)
+pLevel = Level <$> pListElement pLayoutField 
+               <*> pListElement pItems 
+               <*> pListElement pEntities 
 
--- | Parsen van het items-veld.
-pItems :: CharParser () [Object]
-pItems = pField pObjects "items"
+-- | Parsen van een lijst van items.
+pItems :: CharParser () [Item]
+pItems = pField pItemList "items"
 
--- | Parsen van het entities-veld.
-pEntities :: CharParser () [Object]
-pEntities = pField pObjects "entities"
+-- | Parsen van een lijst van entities.
+pEntities :: CharParser () [Entity]
+pEntities = pField pEntitieList "entities"
 
 -- | De mogelijke karakters die een tile in de gameLayout voorstellen.
 pWall, pEmpty, pStart, pEnd :: CharParser () Char
@@ -147,20 +98,8 @@ pPlayer = pField (pBetween '{' '}' pPlayerInner) "player"
 -- | Parsen van de speler (zonder '{' en '}')
 pPlayerInner :: CharParser () Player
 pPlayerInner = Player <$> hp <*> inventory
-    where hp        = spaces *> pField pNumber "hp" <* char ','
-          inventory = spaces *> pField pInventory "inventory" <* spaces
-
--- | Parsen van een lijst met geen of meerdere objecten
-pObjects :: CharParser () [Object]
-pObjects = pListOf pObject 
-
--- | parsen van een object/entitie
-pObject :: CharParser () Object
-pObject = pObjectOf pObjectField
-
--- | inventaries van een speler parsen
-pInventory :: CharParser () [Object]
-pInventory = pObjects
+    where hp        = pListElement (pField pNumber "hp") 
+          inventory = pListElement (pField pItemList "inventory") 
 
 -- | Meerdere acties parsen
 pActions :: CharParser  () [Action]
@@ -173,14 +112,14 @@ pAction = Action <$> pListOf pFunction <*> (spaces *> pFunction)
 
 -- | Parsen van een functie 
 pFunction :: CharParser () Function
-pFunction = Funtion <$> pFunctionName <*> pFunctionArguments
+pFunction = Function <$> pFunctionName <*> pFunctionArguments
 
 pFunctionName :: CharParser () String
 pFunctionName = pCharsButNot ",(]" <* char '(' 
 
 -- | Parsen van functie-argumenten. ofwel opnieuw een functie ofwel ids.
 pFunctionArguments :: CharParser () Arguments
-pFunctionArguments = (Ids <$> try pIds) <|> (Function <$> pFunction <* char ')') 
+pFunctionArguments = (Ids <$> try pIds) <|> (ArgFunction <$> pFunction <* char ')') 
 
 -- Object- of entitie-id
 pIds :: CharParser () [String]

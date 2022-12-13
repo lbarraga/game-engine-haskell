@@ -1,13 +1,13 @@
 name:           rpg-engine
 version:        1.0.0
-author:         Author name here
+author:         Lukas Barragan Torres
 cabal-version:  1.12
 build-type:     Simple
 
 library
   hs-source-dirs: lib
   build-depends: base >= 4.7 && <5, parsec >= 3.1.15.1
-  exposed-modules: VoorbeeldModule
+  exposed-modules: ParserModule, TypeModule, PlayerModule
 
 executable rpg-engine
   main-is: Main.hs

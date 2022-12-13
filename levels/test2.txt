@@ -1,0 +1,14 @@
+{                
+                id: "sword",
+                x: 2,
+                y: 3,
+                name: "Zwaard",
+                description: "Meer schade tegen monsters",
+                useTimes: infinite,
+                value: 25,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(sword),
+                    [] leave()
+                }
+}

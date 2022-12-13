@@ -1,2 +1,5 @@
+import ParserModule (parseGameFile)
+
 main :: IO ()
-main = putStrLn "hoi" 
+main = putStrLn "hoi"
+
