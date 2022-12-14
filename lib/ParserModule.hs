@@ -66,15 +66,16 @@ pEntities :: CharParser () [Entity]
 pEntities = pField pEntitieList "entities"
 
 -- | De mogelijke karakters die een tile in de gameLayout voorstellen.
-pWall, pEmpty, pStart, pEnd :: CharParser () Char
+pWall, pEmpty, pStart, pEnd, pVoid :: CharParser () Char
 pWall  = char '*'
 pEmpty = char '.'
 pStart = char 's'
 pEnd   = char 'e'
+pVoid  = char 'x'
 
 -- | één enkele tile in de gamelayout
 pTile :: CharParser () Char
-pTile = pWall <|> pEmpty <|> pStart <|> pEnd
+pTile = pWall <|> pEmpty <|> pStart <|> pEnd <|> pVoid
 
 -- | Een rij van Tiles parsen
 pTileRow :: CharParser () [Char]
@@ -149,7 +150,7 @@ pDirection = U <$ string "up"
 
 -- | Parse de useTime van een object. Dit kan een eindig aantal keren zijn,
 -- | maar ook oneindig
-pUseTime :: CharParser () UseTime
+pUseTime :: CharParser () (UseTime Int)
 pUseTime = (Infinite <$ string "infinite") <|> (Finite <$> pNumber)
 
 readInt :: String -> Int
