@@ -2,6 +2,8 @@ module PlayerModule where
 
 import TypeModule
 import Control.Concurrent (waitQSem)
+import Data.List (elemIndex, find)
+import Data.Maybe (fromJust, isJust)
 
 main :: IO ()
 main = print "hoi"
@@ -26,8 +28,8 @@ inventoryFull :: Player -> Bool
 inventoryFull = (== maxInventorySize) . length . inventory
 
 -- | Of de inventaris van de speler een bepaald item bevat
-inventoryContains :: String -> Player -> Bool
-inventoryContains id = elem id . map itemId . inventory
+inventoryContains :: Id -> Player -> Bool
+inventoryContains id = isJust . safeSearchItem id . inventory
 
 -- not() is op zich ook een ondersteunde functie maar is
 -- al geimplementeerd in de prelude.
@@ -41,12 +43,17 @@ inventoryContains id = elem id . map itemId . inventory
 leave :: Player -> Player  
 leave = undefined
 
-retrieveItem, useItem, increasePlayerHp :: String -> Player -> Player
-retrieveItem     itemId = undefined 
-useItem          itemId = undefined 
-increasePlayerHp itemId = undefined 
+retrieveItem :: Id -> Level -> Player -> Player
+retrieveItem itemId level = addToInventory (searchItem itemId (items level))
 
-decreaseHp :: String -> String -> Player -> Player
+useItem :: Id -> Player -> Player
+useItem = onPlayerItem (onItemUseTimes (subtract 1))  
+
+increasePlayerHp :: Id -> Player -> Player
+increasePlayerHp itemId player = onPlayerHp (+ itemValue healItem) player
+    where healItem = searchItem itemId (inventory player)
+
+decreaseHp :: Id -> Id -> Player -> Player
 decreaseHp entityId itemId = undefined 
 
 -- --------------------------------------------------------------
@@ -67,7 +74,7 @@ evalActionFunction Function{name = n, arguments = a} = evalAction n a
 
 evalAction :: String -> Arguments -> Player -> Player
 evalAction "leave"            (Ids [])         = leave
-evalAction "retrieveItem"     (Ids [id])       = retrieveItem id
+--evalAction "retrieveItem"     (Ids [id])       = retrieveItem id
 evalAction "useItem"          (Ids [id])       = useItem id
 evalAction "increasePlayerHp" (Ids [id])       = increasePlayerHp id
 evalAction "decreaseHp"       (Ids [id1, id2]) = decreaseHp id1 id2
@@ -77,25 +84,26 @@ evalAction _                  _                = error "Action function not supp
 --
 -- -------------------------------------------------------------
 
--- | Zoek een item in een level gegeven het id van dat item.
-searchItem :: Id -> Level -> Item
-searchItem id = head . filter ((== id) . itemId) . items
+safeSearchItem :: Id -> [Item] -> Maybe Item
+safeSearchItem id = find ((==id) . itemId)
+
+searchItem :: Id -> [Item] -> Item
+searchItem id = fromJust . safeSearchItem id
+
+searchItemIndex :: Id -> [Item] -> Int
+searchItemIndex id = fromJust . elemIndex id . map itemId
 
 addToInventory :: Item -> Player -> Player
-addToInventory item p@Player{inventory = inv} = p{inventory = inv ++ [item]}
+addToInventory item = onPlayerInventory (++[item])
 
-replaceInInventory :: Item -> Player -> Player
-replaceInInventory item player = undefined
+replaceInInventory :: Item -> Item -> [Item] -> [Item]
+replaceInInventory from to l = before ++ [to] ++ after
+    where (before,_:after) = splitAt index l
+          index = fromJust (elemIndex from l)
 
-decreaseUseTime :: UseTime Int -> UseTime Int
-decreaseUseTime Infinite   = Infinite
-decreaseUseTime (Finite n) = Finite (n - 1)
-
-
-
-
-
-
+onPlayerItem :: (Item -> Item) -> Id -> Player -> Player
+onPlayerItem f id p = onPlayerInventory (replaceInInventory item (f item)) p
+    where item = searchItem id (inventory p)
 
 
 

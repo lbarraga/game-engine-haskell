@@ -68,6 +68,9 @@ data Player = Player{hp :: Int, inventory :: [Item]} deriving (Eq, Show)
 onPlayerHp :: (Int -> Int) -> Player -> Player
 onPlayerHp f p = p{hp = f (hp p)}
 
+onPlayerInventory :: ([Item] -> [Item]) -> Player -> Player
+onPlayerInventory f p = p{inventory = f (inventory p)}
+
 -- | De level-layout
 type Layout = [[Char]]
 

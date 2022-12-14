@@ -6,8 +6,8 @@ build-type:     Simple
 
 library
   hs-source-dirs: lib
-  build-depends: base >= 4.7 && <5, parsec >= 3.1.15.1
-  exposed-modules: ParserModule, TypeModule, PlayerModule
+  build-depends: base >= 4.7 && <5, parsec >= 3.1.15.1, gloss >= 1.11 && < 1.14, gloss-juicy >= 0.2.3
+  exposed-modules: ParserModule, TypeModule, PlayerModule, StateModule, RenderModule
 
 executable rpg-engine
   main-is: Main.hs
