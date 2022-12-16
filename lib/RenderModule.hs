@@ -63,6 +63,9 @@ itemHolder = Color itemHolderColor $ rectangleSolid itemHolderSize itemHolderSiz
 actionPanelEmpty :: Picture
 actionPanelEmpty = Color black $ rectangleSolid 300 400
 
+selectorLine :: Picture 
+selectorLine = Color white $ rectangleSolid 250 1
+
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -84,8 +87,8 @@ co2Gloss x y = (fromIntegral (x * 32), fromIntegral (y * 32))
 translateToGloss :: Int -> Int -> Picture -> Picture
 translateToGloss x y = uncurry translate (co2Gloss x y) 
 
-mapWithCoordinates :: [[a]] -> (a -> Int -> Int -> b) -> [b]
-mapWithCoordinates l f = [ f tile x y | (y, row) <- zip [0..] l, (x, tile) <- zip [0..] row] 
+mapWithCoordinates :: [[a]] -> (Int -> Int -> a -> b) -> [b]
+mapWithCoordinates l f = [ f x y tile | (y, row) <- zip [0..] l, (x, tile) <- zip [0..] row] 
 
 -- f [a1, a2, a3, ...] -> [a1, f a2, f (f a3), ...]
 cumulateF :: (a -> a) -> [a] -> [a] 
@@ -111,8 +114,11 @@ renderTile 'e' = emptyPic
 renderTile _   = error "no tile"
 
 renderLayout :: Layout -> Picture
-renderLayout layout = pictures $ mapWithCoordinates layout render
-    where render tile x y = translateToGloss x y (renderTile tile)
+renderLayout layout = pictures $ mapWithCoordinates layout render 
+    where render x y tile = translateToGloss x y (renderTile tile)
+
+renderLevelItems :: [Item] -> Picture
+renderLevelItems items = undefined 
 
 renderItem :: Item -> Picture
 renderItem = png . itemToPath
@@ -151,9 +157,14 @@ renderAction act = renderText (functionDescription functionName functionArgs)
 renderActions :: [Action] -> Picture
 renderActions = pictures . translateCumulative 0 50 . map renderAction 
 
+renderActionPanel :: [Action] -> Int -> Picture
+renderActionPanel actions selectorPos = pictures [actionPanelEmpty, actionPics, selector]
+    where actionPics = translate (-130) 0 $ renderActions actions
+          selector = translate (-5) (fromIntegral (-selectorPos + 3) * 50 - 2) selectorLine
+
 renderGame :: Game -> Picture
 --renderGame g = renderActions ((entityActions . head . entities . head . levels) g) 
-renderGame g = pictures [actionPanelEmpty, renderActions ((entityActions . head . entities . head . levels) g)]
+renderGame g = renderActionPanel ((entityActions . head . entities . head . levels) g) 1
 
 -- stap in de game
 step :: Float -> Game -> Game
