@@ -78,7 +78,7 @@ evalAction "leave"            (Ids [])         = leave
 evalAction "useItem"          (Ids [id])       = useItem id
 evalAction "increasePlayerHp" (Ids [id])       = increasePlayerHp id
 evalAction "decreaseHp"       (Ids [id1, id2]) = decreaseHp id1 id2
-evalAction _                  _                = error "Action function not supported"
+evalAction name               _                = error $ "Action function not supported: " ++ name
 
 -- -------------------------------------------------------------
 --
@@ -97,14 +97,31 @@ addToInventory :: Item -> Player -> Player
 addToInventory item = onPlayerInventory (++[item])
 
 replaceInInventory :: Item -> Item -> [Item] -> [Item]
-replaceInInventory from to l = before ++ [to] ++ after
-    where (before,_:after) = splitAt index l
-          index = fromJust (elemIndex from l)
+replaceInInventory from to l = replaceAtIndex index to l
+    where index = fromJust (elemIndex from l)
+
+-- TODO dit moet hier weg
+replaceAtIndex :: Int -> a -> [a] -> [a]
+replaceAtIndex index repl l = before ++ [repl] ++ after
+    where (before, _:after) = splitAt index l
+
+-- -------------------------------------------------------------
+--
+-- -------------------------------------------------------------
 
 onPlayerItem :: (Item -> Item) -> Id -> Player -> Player
 onPlayerItem f id p = onPlayerInventory (replaceInInventory item (f item)) p
     where item = searchItem id (inventory p)
 
+onPlayerHp :: (Int -> Int) -> Player -> Player
+onPlayerHp f p = p{hp = f (hp p)}
+
+onPlayerInventory :: ([Item] -> [Item]) -> Player -> Player
+onPlayerInventory f p = p{inventory = f (inventory p)}
+
+-- -------------------------------------------------------------
+--
+-- -------------------------------------------------------------
 
 
 

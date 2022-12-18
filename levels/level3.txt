@@ -69,8 +69,8 @@ levels: [
 
                 actions: {
                     [inventoryContains(potion)] increasePlayerHp(potion),
-                    [inventoryContains(sword)] decreaseHp(m1, sword),
-                    [] decreaseHp(m1, dagger),
+                    [inventoryContains(sword)] decreaseHp(devil, sword),
+                    [] decreaseHp(devil, dagger),
                     [] leave()
                 }
             }

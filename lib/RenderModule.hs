@@ -1,6 +1,7 @@
 module RenderModule where
 
 import TypeModule
+import LevelModule
 
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss
@@ -9,7 +10,8 @@ import ParserModule (parseGameFile)
 import Text.Parsec (ParseError)
 import Data.Maybe (fromJust)
 import GHC.IO (unsafePerformIO)
-import PlayerModule (decreaseHp, retrieveItem)
+import PlayerModule (decreaseHp, retrieveItem, leave)
+import GameModule (movePlayerGame, canMoveGame)
 
 
 -- Framerate van het spel.
@@ -23,8 +25,8 @@ windowPosition = (200, 80)
 -- pxlWidth:  De breedte van het spel in pixels.
 -- pxlHeight: De hoogte van het spel in pixels.
 pxlWidth, pxlHeight :: Int
-pxlWidth = 800
-pxlHeight = 700
+pxlWidth = 900
+pxlHeight = 750
 
 -- Het Gloss venster
 window :: Display
@@ -32,14 +34,16 @@ window = InWindow "Patience" (pxlWidth, pxlHeight) windowPosition
 
 -- Achtergrond kleur van het gloss venster
 backgroundColor :: Color
-backgroundColor = white
+backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
 
 initGame :: Game
 initGame = extractGame $ parseGameFile "levels/level3.txt" 
 
-wallPic, emptyPic :: Picture
-wallPic  = png "assets/wall.png"
-emptyPic = png "assets/floor.png" 
+wallPic, emptyPic, playerPic, endPic :: Picture
+wallPic   = png "assets/wall.png"
+emptyPic  = png "assets/floor.png" 
+playerPic = png "assets/player.png"
+endPic    = png "assets/end.png"
 
 itemHolderInset, itemHolderSize, itemHolderSpace, inventoryWidth, inventoryHeight :: Float
 inventoryWidth = 700
@@ -51,8 +55,14 @@ itemHolderSpace = itemHolderSize + itemHolderInset
 inventoryBackGroundColor :: Color
 inventoryBackGroundColor = makeColorI 139 69 19 255
 
+levelContainerColor :: Color
+levelContainerColor = red
+
 itemHolderColor :: Color
 itemHolderColor = makeColorI 72 36 10 255
+
+actionPanelEmptyColor :: Color
+actionPanelEmptyColor = itemHolderColor
 
 inventoryBackground :: Picture
 inventoryBackground = Color inventoryBackGroundColor $ rectangleSolid inventoryWidth inventoryHeight
@@ -61,10 +71,17 @@ itemHolder :: Picture
 itemHolder = Color itemHolderColor $ rectangleSolid itemHolderSize itemHolderSize
 
 actionPanelEmpty :: Picture
-actionPanelEmpty = Color black $ rectangleSolid 300 400
+actionPanelEmpty = Color actionPanelEmptyColor $ rectangleSolid 300 400
 
 selectorLine :: Picture 
 selectorLine = Color white $ rectangleSolid 250 1
+
+lvlContWidth, lvlContHeight :: Float
+lvlContWidth  = 500
+lvlContHeight = 500
+
+levelContainerEmpty :: Picture
+levelContainerEmpty = Color levelContainerColor $ rectangleWire lvlContWidth lvlContHeight
 
 -- ----------------------------------------------------------------------------
 --
@@ -72,23 +89,27 @@ selectorLine = Color white $ rectangleSolid 250 1
 
 -- Ga van een filename naar de picture van die file
 png :: String -> Picture
-png = fromJust . unsafePerformIO . loadJuicyPNG
+png = checkImage . unsafePerformIO . loadJuicyPNG
+
+checkImage :: Maybe Picture -> Picture
+checkImage (Just pic) = pic
+checkImage Nothing    = error "Could not load asset."
 
 itemToPath :: Item -> String
 itemToPath item = "assets/" ++ itemId item ++ ".png"
 
+entityToPath :: Entity -> String
+entityToPath entity = "assets/" ++ entityId entity ++ ".png"
+
 extractGame :: Either ParseError Game -> Game
 extractGame (Right g) = g
-extractGame _ = undefined
+extractGame (Left err) = error (show err)
 
 co2Gloss :: Int -> Int -> (Float, Float)
 co2Gloss x y = (fromIntegral (x * 32), fromIntegral (y * 32))
 
 translateToGloss :: Int -> Int -> Picture -> Picture
 translateToGloss x y = uncurry translate (co2Gloss x y) 
-
-mapWithCoordinates :: [[a]] -> (Int -> Int -> a -> b) -> [b]
-mapWithCoordinates l f = [ f x y tile | (y, row) <- zip [0..] l, (x, tile) <- zip [0..] row] 
 
 -- f [a1, a2, a3, ...] -> [a1, f a2, f (f a3), ...]
 cumulateF :: (a -> a) -> [a] -> [a] 
@@ -102,6 +123,15 @@ translateCumulative x y = cumulateF (translate x y)
 extendToLength :: Int -> [a] -> [Maybe a]
 extendToLength n l = map Just l ++ replicate (n - length l) Nothing
 
+getLevelWidth, getLevelHeight :: Level -> Float
+getLevelWidth  = fromIntegral . length . head . layout
+getLevelHeight = fromIntegral  . length . layout
+
+-- Hulpfunctie die nagaat of een bepaalde toets is ingedrukt.
+isKey :: SpecialKey -> Event -> Bool
+isKey k1 (EventKey (SpecialKey k2) Down _ _) = k1 == k2
+isKey _  _                                   = False
+
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -109,19 +139,40 @@ extendToLength n l = map Just l ++ replicate (n - length l) Nothing
 renderTile :: Char -> Picture
 renderTile '.' = emptyPic
 renderTile '*' = wallPic
-renderTile 's' = emptyPic
-renderTile 'e' = emptyPic
+renderTile 's' = pictures [emptyPic, playerPic]
+renderTile 'e' = pictures [emptyPic, endPic] 
 renderTile _   = error "no tile"
 
-renderLayout :: Layout -> Picture
-renderLayout layout = pictures $ mapWithCoordinates layout render 
-    where render x y tile = translateToGloss x y (renderTile tile)
+renderLevel :: Level -> Picture
+renderLevel level = pictures [translate levelDx levelDy scaledLevel , levelContainerEmpty]
+    where (levelDx, levelDy) = (-(16 * (lWidth - 1) * scaleSize), -(16 * (lHeight - 1) * scaleSize))
+          scaledLevel = scale scaleSize scaleSize levelPic  
+          levelPic = pictures [renderLayout (layout level), renderItems (items level), renderEntities (entities level)]
+          scaleSize = min (lvlContHeight / (32 * lHeight)) (lvlContWidth / ( 32 * lWidth))
+          (lWidth, lHeight) = (getLevelWidth level, getLevelHeight level)
 
-renderLevelItems :: [Item] -> Picture
-renderLevelItems items = undefined 
+renderWithCo :: (a -> Int) -> (a -> Int) -> (a -> Picture) -> a -> Picture
+renderWithCo getX getY render obj = translate dx dy $ render obj
+    where dx = 32 * fromIntegral (getX obj)
+          dy = 32 * fromIntegral (getY obj)
+
+renderLayout :: Layout -> Picture
+renderLayout = pictures . render2dWithCoords
+    where render2dWithCoords l = [ renderWithCo (const x) (const y) renderTile tile 
+            | (y, row)  <- zip [0..] l
+            , (x, tile) <- zip [0..] row]  
+
+renderItems :: [Item] -> Picture
+renderItems = pictures . map (renderWithCo itemX itemY renderItem)
 
 renderItem :: Item -> Picture
 renderItem = png . itemToPath
+
+renderEntities :: [Entity] -> Picture
+renderEntities = pictures . map (renderWithCo entityX entityY renderEntity)
+
+renderEntity :: Entity -> Picture
+renderEntity = png . entityToPath
 
 renderInventoryItems :: [Item] -> Picture
 renderInventoryItems items = pictures spacedOutItemHolders 
@@ -141,6 +192,7 @@ renderInventory items = pictures [inventoryBackground, inventoryItems]
 renderText :: String -> Picture
 renderText = color white . scale 0.1 0.1 . text
 
+-- TODO deze functie moet hier weg
 functionDescription :: String -> Arguments -> String
 functionDescription "increasePlayerHp" (Ids [id])       = "Increase hp with " ++ id
 functionDescription "leave"            (Ids [])         = "Leave and do Nothing"
@@ -163,15 +215,22 @@ renderActionPanel actions selectorPos = pictures [actionPanelEmpty, actionPics, 
           selector = translate (-5) (fromIntegral (-selectorPos + 3) * 50 - 2) selectorLine
 
 renderGame :: Game -> Picture
---renderGame g = renderActions ((entityActions . head . entities . head . levels) g) 
-renderGame g = renderActionPanel ((entityActions . head . entities . head . levels) g) 1
+renderGame g = pictures [actionPanel, inv, lvl]
+    where inv = (translate 0 (-300) . renderInventory . inventory . player) g
+          lvl = (translate 190 50 . renderLevel . head . levels) g
+          actionPanel = translate (-250) 50 actionPanelEmpty
 
 -- stap in de game
 step :: Float -> Game -> Game
 step _ game = game
 
 handleInput :: Event -> Game -> Game
-handleInput _ game = game
+handleInput ev game@Game{levels = lvls}
+  | isKey KeyDown  ev && canMoveGame D game = movePlayerGame D game
+  | isKey KeyUp    ev && canMoveGame U game = movePlayerGame U game
+  | isKey KeyRight ev && canMoveGame R game = movePlayerGame R game
+  | isKey KeyLeft  ev && canMoveGame L game = movePlayerGame L game
+handleInput _ game = game 
 
 main :: IO ()
 main = play window backgroundColor fps initGame renderGame handleInput step

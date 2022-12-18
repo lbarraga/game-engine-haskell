@@ -83,7 +83,7 @@ pTileRow = pTile `sepBy` char ' '
 
 -- | Parser voor het layout-veld.
 pLayoutField :: CharParser () Layout
-pLayoutField = spaces *> pField (pBetween '{' '}' pLayout) "layout"
+pLayoutField = spaces *> pField (pBetween '{' '}' (reverse <$> pLayout)) "layout"
 
 -- Parser voor de layout. de layout wordt gezien als een lijst met als
 -- delimiter 'whitespace...| '
