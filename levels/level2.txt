@@ -19,8 +19,8 @@ levels: [
         items: [
             {
                 id: "key",
-                x: 1,
-                y: 2,
+                x: 0,
+                y: 1,
                 name: "Sleutel",
                 description: "Deze sleutel kan een deur openen",
                 useTimes: 1,
@@ -35,8 +35,8 @@ levels: [
         entities: [
             {
                 id: "door",
-                x: 1,
-                y: 4,
+                x: 0,
+                y: 3,
                 name: "Deur",
                 description: "Deze deur kan geopend worden met een sleutel",
                 direction: up,

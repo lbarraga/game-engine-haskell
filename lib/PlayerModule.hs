@@ -29,7 +29,7 @@ inventoryFull = (== maxInventorySize) . length . inventory
 
 -- | Of de inventaris van de speler een bepaald item bevat
 inventoryContains :: Id -> Player -> Bool
-inventoryContains id = isJust . safeSearchItem id . inventory
+inventoryContains id = isJust . safeSearchInInventory id
 
 -- not() is op zich ook een ondersteunde functie maar is
 -- al geimplementeerd in de prelude.
@@ -43,8 +43,8 @@ inventoryContains id = isJust . safeSearchItem id . inventory
 leave :: Player -> Player  
 leave = undefined
 
-retrieveItem :: Id -> Level -> Player -> Player
-retrieveItem itemId level = addToInventory (searchItem itemId (items level))
+retrieveItem :: Item -> Player -> Player
+retrieveItem = addToInventory
 
 useItem :: Id -> Player -> Player
 useItem = onPlayerItem (onItemUseTimes (subtract 1))  
@@ -53,42 +53,33 @@ increasePlayerHp :: Id -> Player -> Player
 increasePlayerHp itemId player = onPlayerHp (+ itemValue healItem) player
     where healItem = searchItem itemId (inventory player)
 
-decreaseHp :: Id -> Id -> Player -> Player
-decreaseHp entityId itemId = undefined 
-
 -- --------------------------------------------------------------
 --
 -- --------------------------------------------------------------
 
-evalConditionFunction :: Function -> Player -> Bool
-evalConditionFunction Function{name = n, arguments = a} = evalCondition n a
+safeSearchObject :: (a -> Id) -> Id -> [a] -> Maybe a
+safeSearchObject getId id = find ((==id) . getId)
 
-evalCondition :: String -> Arguments -> Player -> Bool
-evalCondition "not"               (ArgFunction f) = not . evalConditionFunction f
-evalCondition "inventoryFull"     (Ids [])        = inventoryFull
-evalCondition "inventoryContains" (Ids [id])      = inventoryContains id
-evalCondition _                _                  = error "Condition function not supported"
-
-evalActionFunction :: Function -> Player -> Player
-evalActionFunction Function{name = n, arguments = a} = evalAction n a
-
-evalAction :: String -> Arguments -> Player -> Player
-evalAction "leave"            (Ids [])         = leave
---evalAction "retrieveItem"     (Ids [id])       = retrieveItem id
-evalAction "useItem"          (Ids [id])       = useItem id
-evalAction "increasePlayerHp" (Ids [id])       = increasePlayerHp id
-evalAction "decreaseHp"       (Ids [id1, id2]) = decreaseHp id1 id2
-evalAction name               _                = error $ "Action function not supported: " ++ name
-
--- -------------------------------------------------------------
---
--- -------------------------------------------------------------
+searchObject :: (a -> Id) -> Id -> [a] -> a
+searchObject getId id = fromJust . safeSearchObject getId id
 
 safeSearchItem :: Id -> [Item] -> Maybe Item
-safeSearchItem id = find ((==id) . itemId)
+safeSearchItem = safeSearchObject itemId
+
+safeSearchEntity :: Id -> [Entity] -> Maybe Entity
+safeSearchEntity = safeSearchObject entityId
 
 searchItem :: Id -> [Item] -> Item
 searchItem id = fromJust . safeSearchItem id
+
+safeSearchInInventory :: Id -> Player -> Maybe Item
+safeSearchInInventory id = safeSearchItem id . inventory
+
+searchInInventory :: Id -> Player -> Item
+searchInInventory id = fromJust . safeSearchInInventory id
+
+searchEntity :: Id -> [Entity] -> Entity
+searchEntity id = fromJust . safeSearchEntity id
 
 searchItemIndex :: Id -> [Item] -> Int
 searchItemIndex id = fromJust . elemIndex id . map itemId
@@ -97,7 +88,10 @@ addToInventory :: Item -> Player -> Player
 addToInventory item = onPlayerInventory (++[item])
 
 replaceInInventory :: Item -> Item -> [Item] -> [Item]
-replaceInInventory from to l = replaceAtIndex index to l
+replaceInInventory = replaceObjInList
+
+replaceObjInList :: Eq a => a -> a -> [a] -> [a]
+replaceObjInList from to l = replaceAtIndex index to l
     where index = fromJust (elemIndex from l)
 
 -- TODO dit moet hier weg

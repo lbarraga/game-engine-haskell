@@ -9,7 +9,7 @@ data Entity = Entity {
     entityDirection :: Maybe Dir,
     entityHp :: Maybe Int,
     entityValue :: Maybe Int, 
-    entityActions :: [Action]
+    entityActions :: [ConditionalAction]
 } deriving (Eq, Show)
 
 onEntityX, onEntityY, onEntityHp, onEntityValue :: (Int -> Int) -> Entity -> Entity
@@ -26,7 +26,7 @@ data Item = Item {
     itemDescription :: String,
     itemUseTimes :: UseTime Int,
     itemValue :: Int,
-    itemActions :: [Action]
+    itemActions :: [ConditionalAction]
 } deriving (Eq, Show)
 
 onItemX, onItemY, onItemUseTimes, onItemValue :: (Int -> Int) -> Item -> Item
@@ -57,7 +57,7 @@ data Function = Function {
 } deriving (Eq, Show)
 
 -- | om uit te voeren wanneer deze condities allemaal waar zijn
-data Action = Action {
+data ConditionalAction = Action {
     conditions :: [Function],
     action :: Function
 } deriving (Eq, Show)
@@ -77,5 +77,16 @@ data Level = Level {
     entities :: [Entity]
 } deriving (Eq, Show) 
 
+data PanelStatus = On | Off deriving (Eq, Show)
+data PanelMode = PanelMode{
+    status :: PanelStatus,
+    selectorPos :: Int,
+    panelActions :: [ConditionalAction]
+} deriving (Eq, Show)
+
 -- | Een Game heeft een speler en een lijst van levels.
-data Game = Game{player :: Player, levels :: [Level]} deriving (Eq, Show)
+data Game = Game{
+    player :: Player, 
+    levels :: [Level], 
+    panelMode :: PanelMode
+} deriving (Eq, Show)

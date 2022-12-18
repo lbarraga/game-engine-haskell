@@ -10,8 +10,9 @@ import ParserModule (parseGameFile)
 import Text.Parsec (ParseError)
 import Data.Maybe (fromJust)
 import GHC.IO (unsafePerformIO)
-import PlayerModule (decreaseHp, retrieveItem, leave)
-import GameModule (movePlayerGame, canMoveGame)
+import PlayerModule (retrieveItem, leave)
+import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff)
+import Debug.Trace (trace)
 
 
 -- Framerate van het spel.
@@ -163,13 +164,13 @@ renderLayout = pictures . render2dWithCoords
             , (x, tile) <- zip [0..] row]  
 
 renderItems :: [Item] -> Picture
-renderItems = pictures . map (renderWithCo itemX itemY renderItem)
+renderItems = pictures . map (renderWithCo ((+1) . itemX) ((+1) . itemY) renderItem)
 
 renderItem :: Item -> Picture
 renderItem = png . itemToPath
 
 renderEntities :: [Entity] -> Picture
-renderEntities = pictures . map (renderWithCo entityX entityY renderEntity)
+renderEntities = pictures . map (renderWithCo ((+1) . entityX) ((+1) . entityY) renderEntity)
 
 renderEntity :: Entity -> Picture
 renderEntity = png . entityToPath
@@ -201,36 +202,73 @@ functionDescription "retrieveItem"     (Ids [id])       = "Retrieve " ++ id
 functionDescription "useItem"          (Ids [id])       = "Use " ++ id
 functionDescription name               _                = error "no description for function " ++ name
 
-renderAction :: Action -> Picture
+renderAction :: ConditionalAction -> Picture
 renderAction act = renderText (functionDescription functionName functionArgs)
     where functionName = name (action act)
           functionArgs = arguments (action act)
 
-renderActions :: [Action] -> Picture
-renderActions = pictures . translateCumulative 0 50 . map renderAction 
+renderActions :: [ConditionalAction] -> Picture
+renderActions = pictures . translateCumulative 0 (-50) . map renderAction 
 
-renderActionPanel :: [Action] -> Int -> Picture
-renderActionPanel actions selectorPos = pictures [actionPanelEmpty, actionPics, selector]
-    where actionPics = translate (-130) 0 $ renderActions actions
+renderActionPanel :: PanelMode -> Picture
+renderActionPanel (PanelMode Off _ _) = blank
+renderActionPanel (PanelMode On selectorPos actions) = pictures [actionPanelEmpty, actionPics, selector]
+    where actionPics = translate (-130) 150 $ renderActions actions
           selector = translate (-5) (fromIntegral (-selectorPos + 3) * 50 - 2) selectorLine
 
 renderGame :: Game -> Picture
 renderGame g = pictures [actionPanel, inv, lvl]
     where inv = (translate 0 (-300) . renderInventory . inventory . player) g
           lvl = (translate 190 50 . renderLevel . head . levels) g
-          actionPanel = translate (-250) 50 actionPanelEmpty
+          actionPanel = translate (-250) 50 $ renderActionPanel (panelMode g) 
 
 -- stap in de game
 step :: Float -> Game -> Game
 step _ game = game
 
 handleInput :: Event -> Game -> Game
-handleInput ev game@Game{levels = lvls}
-  | isKey KeyDown  ev && canMoveGame D game = movePlayerGame D game
-  | isKey KeyUp    ev && canMoveGame U game = movePlayerGame U game
-  | isKey KeyRight ev && canMoveGame R game = movePlayerGame R game
-  | isKey KeyLeft  ev && canMoveGame L game = movePlayerGame L game
-handleInput _ game = game 
+handleInput ev game 
+  | panelStatus == On  = handleActionPanelInput ev game
+  | otherwise          = handlePlayerInput ev game
+  where panelStatus = (status . panelMode) game
+
+handlePlayerInput :: Event -> Game -> Game
+handlePlayerInput ev
+  | isKey KeyDown  ev = handleDirectionInput D
+  | isKey KeyUp    ev = handleDirectionInput U
+  | isKey KeyRight ev = handleDirectionInput R
+  | isKey KeyLeft  ev = handleDirectionInput L
+handlePlayerInput _   = id
+
+handleActionPanelInput :: Event -> Game -> Game
+handleActionPanelInput ev game
+  | isKey KeyDown  ev = moveSelector D actionsLength game 
+  | isKey KeyUp    ev = moveSelector U actionsLength game
+  | isKey KeySpace ev = togglePanelModeOff game
+  where actionsLength = (length . panelActions . panelMode) game
+handleActionPanelInput _ game = game
+
+handleDirectionInput :: Dir -> Game -> Game
+handleDirectionInput dir game
+  | hasActionInDirGame dir game = togglePanelModeOn game (getActionFromDirectionGame dir game)
+  | canMoveGame dir game = movePlayerGame dir game
+  | otherwise = game
 
 main :: IO ()
 main = play window backgroundColor fps initGame renderGame handleInput step
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

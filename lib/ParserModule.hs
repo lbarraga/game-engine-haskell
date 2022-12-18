@@ -45,7 +45,9 @@ pListElement valueParser = spaces *> valueParser <* (string ",\n" <|> string "\n
 -- | Parser van de volledige game. Ook het ingangspunt van alle parsers.
 -- | Deze parser zal worden opgeroepen op het bestand.
 pGame :: CharParser () Game
-pGame = Game <$> (spaces *> pPlayer) <*> (spaces *> pLevels)
+pGame = Game <$> (spaces  *> pPlayer) <*> (spaces  *> pLevels) 
+             <*> (PanelMode Off 0 [] <$ string "") -- kleine hack
+
 
 -- | Parsen van meerdere levels
 pLevels :: CharParser () [Level]
@@ -103,12 +105,12 @@ pPlayerInner = Player <$> hp <*> inventory
           inventory = pListElement (pField pItemList "inventory") 
 
 -- | Meerdere acties parsen
-pActions :: CharParser  () [Action]
+pActions :: CharParser  () [ConditionalAction]
 pActions = pObjectOf pAction
 
 -- | Een enkele functie parsen.
 -- | Eerst wordten de conditionele functies geparsed en daarna de actie
-pAction :: CharParser () Action
+pAction :: CharParser () ConditionalAction
 pAction = Action <$> pListOf pFunction <*> (spaces *> pFunction)
 
 -- | Parsen van een functie 
