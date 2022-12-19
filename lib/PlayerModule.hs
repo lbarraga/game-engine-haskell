@@ -41,7 +41,7 @@ inventoryContains id = isJust . safeSearchInInventory id
 -- --------------------------------------------------------------
 
 leave :: Player -> Player  
-leave = undefined
+leave = id
 
 retrieveItem :: Item -> Player -> Player
 retrieveItem = addToInventory

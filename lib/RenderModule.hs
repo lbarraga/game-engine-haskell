@@ -11,7 +11,7 @@ import Text.Parsec (ParseError)
 import Data.Maybe (fromJust)
 import GHC.IO (unsafePerformIO)
 import PlayerModule (retrieveItem, leave)
-import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff)
+import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction)
 import Debug.Trace (trace)
 
 
@@ -244,7 +244,7 @@ handleActionPanelInput :: Event -> Game -> Game
 handleActionPanelInput ev game
   | isKey KeyDown  ev = moveSelector D actionsLength game 
   | isKey KeyUp    ev = moveSelector U actionsLength game
-  | isKey KeySpace ev = togglePanelModeOff game
+  | isKey KeySpace ev = (togglePanelModeOff . selectAction) game
   where actionsLength = (length . panelActions . panelMode) game
 handleActionPanelInput _ game = game
 

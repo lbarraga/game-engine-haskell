@@ -37,6 +37,10 @@ getActionFromDirectionGame dir g = ((`filterPossible` g) . getActionFromDirectio
 --
 -- -------------------------------------------------
 
+selectAction :: Game -> Game
+selectAction g@Game{panelMode = PanelMode _ selPos actionList} = evalActionFunction actieFunctie g
+    where actieFunctie = action (actionList !! selPos)
+
 togglePanelModeOn :: Game -> [ConditionalAction] -> Game
 togglePanelModeOn game actions = game{panelMode = PanelMode On 0 actions} 
 
