@@ -1,51 +1,57 @@
 module TypeModule where
 
-data BaseObject = BaseObject {
-    baseId :: Id,
-    x :: Int,
-    y :: Int,
-    baseName :: String,
-    discription :: String,
-    actions :: [ConditionalAction]
-}
-
+-- | Om gedupliceerde code te vermijden,
+-- | moeten de gemeenschappelijke attributen van items en entities
+-- | op éénzelfde manier opgevraagd worden
 class GameObject a where
-    getBaseAttr :: a -> BaseObject
+    getId :: a -> Id
+    getX :: a -> X
+    getY :: a -> Y
+    getName :: a -> String
+    getDescription :: a -> String
+    getActions :: a -> [ConditionalAction]
 
+-- | een entity in het spel, dit kan een statische 
+-- | of actieve entity zijn naargelang hij een hp bezit.
 data Entity = Entity {
-    entityId :: String,
-    entityX :: Int,
-    entityY :: Int,
-    entityName :: String, 
-    entityDiscription :: String,
+    entityId :: Id,
+    entityX :: X,
+    entityY :: Y,
+    entityName :: String,
+    entityDescription :: String,
     entityDirection :: Maybe Dir,
     entityHp :: Maybe Int,
-    entityValue :: Maybe Int, 
+    entityValue :: Maybe Int,
     entityActions :: [ConditionalAction]
 } deriving (Eq, Show)
 
-onEntityX, onEntityY, onEntityHp, onEntityValue :: (Int -> Int) -> Entity -> Entity
-onEntityX     f e = e{entityX     = f (entityX e)}
-onEntityY     f e = e{entityY     = f (entityY e)}
-onEntityHp    f e = e{entityHp    = f <$> entityHp e}
-onEntityValue f e = e{entityValue = f <$> entityValue e}
+instance GameObject Entity where 
+    getId = entityId
+    getX = entityX
+    getY = entityY
+    getName = entityName
+    getDescription = entityDescription
+    getActions = entityActions
 
 data Item = Item {
-    itemId :: String,
-    itemX :: Int,
-    itemY :: Int,
+    itemId :: Id,
+    itemX :: X,
+    itemY :: Y,
     itemName :: String,
-    itemDescription :: String,
+    itemDescription :: String, 
     itemUseTimes :: UseTime Int,
     itemValue :: Int,
     itemActions :: [ConditionalAction]
 } deriving (Eq, Show)
 
-onItemX, onItemY, onItemUseTimes, onItemValue :: (Int -> Int) -> Item -> Item
-onItemX        f item = item{itemX        = f (itemX item)}
-onItemY        f item = item{itemY        = f (itemY item)}
-onItemUseTimes f item = item{itemUseTimes = f <$> itemUseTimes item}
-onItemValue    f item = item{itemValue    = f (itemValue item)}
+instance GameObject Item where
+    getId = itemId
+    getX = itemX
+    getY = itemY
+    getName = itemName
+    getDescription = itemDescription
+    getActions = itemActions
+
 
 -- | De richting van een object
 data Dir = U | D | L | R deriving (Eq, Show)
@@ -58,13 +64,17 @@ instance Functor UseTime where
 -- | een identifier van een object
 type Id = String
 
+-- | Coordinaten
+type X = Int
+type Y = Int
+
 -- | Het argument van een functie is ofwel nog een functie (bv. bij not(...)),
 -- | ofwel één of meerdere ids
 data Arguments = ArgFunction Function | Ids [Id] deriving (Eq, Show)
 
 -- | Een functie heeft een naam en argumenten
 data Function = Function {
-    name :: String,
+    fName :: String,
     arguments :: Arguments
 } deriving (Eq, Show)
 
@@ -76,7 +86,6 @@ data ConditionalAction = Action {
 
 -- | Een speler heeft hp en een inventaris.
 data Player = Player{hp :: Int, inventory :: [Item]} deriving (Eq, Show)
-
 
 -- | De level-layout
 type Layout = [[Char]]
@@ -102,3 +111,17 @@ data Game = Game{
     levels :: [Level], 
     panelMode :: PanelMode
 } deriving (Eq, Show)
+
+-- -------------------------------------------------------
+-- Om verdere code leesbaarder te maken definieren we 
+-- hier een aantal functies die een record unpacken, 
+-- een functie toepassen op een van de attributen en terug
+-- inpakken. Deze functie beginnen steeds met 'on'
+-- -------------------------------------------------------
+
+onEntityHp :: (Int -> Int) -> Entity -> Entity
+onEntityHp f e = e{entityHp = f <$> entityHp e}
+
+onItemUseTimes, onItemValue :: (Int -> Int) -> Item -> Item
+onItemUseTimes f item = item{itemUseTimes = f <$> itemUseTimes item}
+onItemValue    f item = item{itemValue    = f (itemValue item)}

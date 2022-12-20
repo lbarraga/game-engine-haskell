@@ -78,10 +78,10 @@ searchObject :: (a -> Id) -> Id -> [a] -> a
 searchObject getId id = fromJust . safeSearchObject getId id
 
 safeSearchItem :: Id -> [Item] -> Maybe Item
-safeSearchItem = safeSearchObject itemId
+safeSearchItem = safeSearchObject getId
 
 safeSearchEntity :: Id -> [Entity] -> Maybe Entity
-safeSearchEntity = safeSearchObject entityId
+safeSearchEntity = safeSearchObject getId
 
 searchItem :: Id -> [Item] -> Item
 searchItem id = fromJust . safeSearchItem id
@@ -96,7 +96,7 @@ searchEntity :: Id -> [Entity] -> Entity
 searchEntity id = fromJust . safeSearchEntity id
 
 searchItemIndex :: Id -> [Item] -> Int
-searchItemIndex id = fromJust . elemIndex id . map itemId
+searchItemIndex id = fromJust . elemIndex id . map getId
 
 addToInventory :: Item -> Player -> Player
 addToInventory item = onPlayerInventory (++[item])

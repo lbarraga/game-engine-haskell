@@ -206,7 +206,7 @@ renderText = scale 0.1 0.1 . text
 
 renderAction :: ConditionalAction -> Picture
 renderAction act = color white $ renderText (functionDescription functionName functionArgs)
-    where functionName = name (action act)
+    where functionName = fName (action act)
           functionArgs = arguments (action act)
 
 renderActions :: [ConditionalAction] -> Picture

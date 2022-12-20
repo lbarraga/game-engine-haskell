@@ -1,7 +1,7 @@
 module GameModule where
 
 import TypeModule
-import LevelModule (movePlayer, canMove, decreaseHp, hasActionInDir, getActionFromDirection, removeFromItemLevel, wall)
+import LevelModule (movePlayer, canMove, decreaseHp, hasActionInDir, getActionFromDirection, removeItemFromLevel, wall)
 import PlayerModule (replaceAtIndex, searchInInventory, inventoryFull, inventoryContains, leave, useItem, increasePlayerHp, searchItem, addToInventory, searchEntity, decreasePlayerHp, useItemId)
 import GHC.Integer (integerToInt)
 import Debug.Trace (trace)
@@ -70,7 +70,7 @@ evalConditionFunctions :: ConditionalAction -> Game -> Bool
 evalConditionFunctions conAction game = all (`evalConditionFunction` game) (conditions conAction)
 
 evalConditionFunction :: Function -> Game -> Bool
-evalConditionFunction Function{name = n, arguments = a} = evalCondition n a
+evalConditionFunction Function{fName = n, arguments = a} = evalCondition n a
 
 evalCondition :: String -> Arguments -> Game -> Bool
 evalCondition "not"               (ArgFunction f) = not . evalConditionFunction f
@@ -79,7 +79,7 @@ evalCondition "inventoryContains" (Ids [id])      = inventoryContains id . playe
 evalCondition _                _                  = error "Condition function not supported"
 
 evalActionFunction :: Function -> Game -> Game
-evalActionFunction Function{name = n, arguments = a} = evalAction n a
+evalActionFunction Function{fName = n, arguments = a} = evalAction n a
 
 evalAction :: String -> Arguments -> Game -> Game
 evalAction "leave"            (Ids [])         g = leaveGame g
@@ -111,7 +111,7 @@ increasePlayerHpGame :: Id -> Game -> Game
 increasePlayerHpGame healingItemId = onPlayer (increasePlayerHp healingItemId)
 
 retrieveItemGame :: Item -> Game -> Game
-retrieveItemGame item = onCurrentLevel (removeFromItemLevel item) . onPlayer (addToInventory item)
+retrieveItemGame item = onCurrentLevel (removeItemFromLevel item) . onPlayer (addToInventory item)
 
 decreaseHpGame :: Item -> Entity -> Game -> Game
 decreaseHpGame weapon enemy = onPlayer (decreasePlayerHp enemy) . onCurrentLevel (decreaseHp weapon enemy)
