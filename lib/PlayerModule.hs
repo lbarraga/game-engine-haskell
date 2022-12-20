@@ -4,6 +4,7 @@ import TypeModule
 import Control.Concurrent (waitQSem)
 import Data.List (elemIndex, find)
 import Data.Maybe (fromJust, isJust)
+import Debug.Trace (trace)
 
 main :: IO ()
 main = print "hoi"
@@ -40,18 +41,31 @@ inventoryContains id = isJust . safeSearchInInventory id
 -- | van een speler.                                            |
 -- --------------------------------------------------------------
 
+debug :: a -> String -> a
+debug = flip trace
+
 leave :: Player -> Player  
 leave = id
 
-retrieveItem :: Item -> Player -> Player
-retrieveItem = addToInventory
+useItemId :: Id -> Player -> Player
+useItemId id player = useItem item player
+    where item = searchInInventory id player
 
-useItem :: Id -> Player -> Player
-useItem = onPlayerItem (onItemUseTimes (subtract 1))  
+useItem :: Item -> Player -> Player
+useItem item@Item{itemUseTimes = (Finite 1)} = removeFromInventory item
+useItem item = onPlayerItem (onItemUseTimes (subtract 1)) item 
 
 increasePlayerHp :: Id -> Player -> Player
-increasePlayerHp itemId player = onPlayerHp (+ itemValue healItem) player
-    where healItem = searchItem itemId (inventory player)
+increasePlayerHp itemId player = (useItem healItem . onPlayerHp (+ itemValue healItem)) player
+    where healItem = searchInInventory itemId player
+
+decreasePlayerHp :: Entity -> Player -> Player
+decreasePlayerHp entity = onPlayerHp (subtract entityDamage)
+    where entityDamage = fromJust $ entityValue entity
+
+-- --------------------------------------------------------------
+--
+-- --------------------------------------------------------------
 
 -- --------------------------------------------------------------
 --
@@ -87,6 +101,9 @@ searchItemIndex id = fromJust . elemIndex id . map itemId
 addToInventory :: Item -> Player -> Player
 addToInventory item = onPlayerInventory (++[item])
 
+removeFromInventory :: Item -> Player -> Player
+removeFromInventory item = onPlayerInventory (filter (/= item)) 
+
 replaceInInventory :: Item -> Item -> [Item] -> [Item]
 replaceInInventory = replaceObjInList
 
@@ -103,9 +120,11 @@ replaceAtIndex index repl l = before ++ [repl] ++ after
 --
 -- -------------------------------------------------------------
 
-onPlayerItem :: (Item -> Item) -> Id -> Player -> Player
-onPlayerItem f id p = onPlayerInventory (replaceInInventory item (f item)) p
-    where item = searchItem id (inventory p)
+onPlayerItem :: (Item -> Item) -> Item -> Player -> Player
+onPlayerItem f item = onPlayerInventory (replaceInInventory item (f item))
+
+onPlayerItemId :: (Item -> Item) -> Id -> Player -> Player
+onPlayerItemId f itemId p = onPlayerItem f (searchItem itemId (inventory p)) p
 
 onPlayerHp :: (Int -> Int) -> Player -> Player
 onPlayerHp f p = p{hp = f (hp p)}

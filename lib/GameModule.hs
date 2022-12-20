@@ -1,10 +1,11 @@
 module GameModule where
 
 import TypeModule
-import LevelModule (movePlayer, canMove, decreaseHp, hasActionInDir, getActionFromDirection)
-import PlayerModule (replaceAtIndex, searchInInventory, inventoryFull, inventoryContains, leave, useItem, increasePlayerHp, searchItem, retrieveItem)
+import LevelModule (movePlayer, canMove, decreaseHp, hasActionInDir, getActionFromDirection, removeFromItemLevel, wall)
+import PlayerModule (replaceAtIndex, searchInInventory, inventoryFull, inventoryContains, leave, useItem, increasePlayerHp, searchItem, addToInventory, searchEntity, decreasePlayerHp, useItemId)
 import GHC.Integer (integerToInt)
 import Debug.Trace (trace)
+import Data.Maybe (fromJust)
 
 onLevels :: ([Level] -> [Level]) -> Game -> Game
 onLevels f g = g {levels = f (levels g)}
@@ -81,22 +82,55 @@ evalActionFunction :: Function -> Game -> Game
 evalActionFunction Function{name = n, arguments = a} = evalAction n a
 
 evalAction :: String -> Arguments -> Game -> Game
-evalAction "leave"            (Ids [])         g = onPlayer leave g
-evalAction "useItem"          (Ids [id])       g = onPlayer (useItem id) g
-evalAction "increasePlayerHp" (Ids [id])       g = onPlayer (increasePlayerHp id) g
-evalAction "retrieveItem"     (Ids [id])       g = onPlayer (retrieveItem (getItem id g)) g
-evalAction "decreaseHp"       (Ids [id1, id2]) g = onCurrentLevel (decreaseHp id1 (getPlayerweapon id2 g)) g
+evalAction "leave"            (Ids [])         g = leaveGame g
+evalAction "useItem"          (Ids [id])       g = useItemGame id g
+evalAction "increasePlayerHp" (Ids [id])       g = increasePlayerHpGame id g
+evalAction "retrieveItem"     (Ids [id])       g = retrieveItemGame (getItem id g) g
+evalAction "decreaseHp"       (Ids [id1, id2]) g = decreaseHpGame (getPlayerweapon id2 g) (getEntityGame id1 g) g
 evalAction name               _                _ = error $ "Action function not supported: " ++ name
+
+functionDescription :: String -> Arguments -> String
+functionDescription "increasePlayerHp" (Ids [id])       = "Increase hp with " ++ id
+functionDescription "leave"            (Ids [])         = "Leave and do Nothing"
+functionDescription "decreaseHp"       (Ids [id1, id2]) = "Decrease hp of " ++ id1 ++ " with " ++ id2
+functionDescription "retrieveItem"     (Ids [id])       = "Retrieve " ++ id
+functionDescription "useItem"          (Ids [id])       = "Use " ++ id
+functionDescription name               _                = error "no description for function " ++ name
+
+-- -------------------------------------------------
+--
+-- -------------------------------------------------
+
+leaveGame :: Game -> Game
+leaveGame = id
+
+useItemGame :: Id -> Game -> Game
+useItemGame itemId = onPlayer (useItemId itemId)
+
+increasePlayerHpGame :: Id -> Game -> Game
+increasePlayerHpGame healingItemId = onPlayer (increasePlayerHp healingItemId)
+
+retrieveItemGame :: Item -> Game -> Game
+retrieveItemGame item = onCurrentLevel (removeFromItemLevel item) . onPlayer (addToInventory item)
+
+decreaseHpGame :: Item -> Entity -> Game -> Game
+decreaseHpGame weapon enemy = onPlayer (decreasePlayerHp enemy) . onCurrentLevel (decreaseHp weapon enemy)
+
+-- -------------------------------------------------
+--
+-- -------------------------------------------------
 
 getPlayerweapon :: Id -> Game -> Item
 getPlayerweapon id = searchInInventory id . player 
 
+injurePlayer :: Entity -> Game -> Game
+injurePlayer enemy = onPlayer (decreasePlayerHp enemy) 
+
 getItem :: Id -> Game -> Item
 getItem id = searchItem id . items . getCurrentLevel
 
-
-
-
+getEntityGame :: Id -> Game -> Entity
+getEntityGame id = searchEntity id . entities . getCurrentLevel
 
 
 

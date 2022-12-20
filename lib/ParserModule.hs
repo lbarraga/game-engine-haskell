@@ -137,7 +137,7 @@ pCharsButNot excluded = many1 $ satisfy (`notElem` excluded)
 
 -- Parse een veld met een sleutelWaarde met een gegeven parser
 pField :: CharParser () a -> String -> CharParser () a
-pField valueParser key = try $ (string key >> char ':' >> spaces) >> valueParser
+pField valueParser key = try $ string key >> char ':' >> spaces >> valueParser
 
 -- | Parse een string in doublequotes
 pString :: CharParser () String

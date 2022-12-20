@@ -1,5 +1,17 @@
 module TypeModule where
 
+data BaseObject = BaseObject {
+    baseId :: Id,
+    x :: Int,
+    y :: Int,
+    baseName :: String,
+    discription :: String,
+    actions :: [ConditionalAction]
+}
+
+class GameObject a where
+    getBaseAttr :: a -> BaseObject
+
 data Entity = Entity {
     entityId :: String,
     entityX :: Int,

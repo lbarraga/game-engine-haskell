@@ -10,9 +10,9 @@ import ParserModule (parseGameFile)
 import Text.Parsec (ParseError)
 import Data.Maybe (fromJust)
 import GHC.IO (unsafePerformIO)
-import PlayerModule (retrieveItem, leave)
-import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction)
+import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction, functionDescription)
 import Debug.Trace (trace)
+import TypeModule (PanelMode(panelActions))
 
 
 -- Framerate van het spel.
@@ -40,11 +40,14 @@ backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
 initGame :: Game
 initGame = extractGame $ parseGameFile "levels/level3.txt" 
 
+assetFolder :: String
+assetFolder = "assets/fantasy"
+
 wallPic, emptyPic, playerPic, endPic :: Picture
-wallPic   = png "assets/wall.png"
-emptyPic  = png "assets/floor.png" 
-playerPic = png "assets/player.png"
-endPic    = png "assets/end.png"
+wallPic   = png $ assetFolder ++ "/wall.png"
+emptyPic  = png $ assetFolder ++ "/floor.png" 
+playerPic = png $ assetFolder ++ "/player.png"
+endPic    = png $ assetFolder ++ "/end.png"
 
 itemHolderInset, itemHolderSize, itemHolderSpace, inventoryWidth, inventoryHeight :: Float
 inventoryWidth = 700
@@ -97,10 +100,10 @@ checkImage (Just pic) = pic
 checkImage Nothing    = error "Could not load asset."
 
 itemToPath :: Item -> String
-itemToPath item = "assets/" ++ itemId item ++ ".png"
+itemToPath item = assetFolder ++ "/" ++ itemName item ++ ".png"
 
 entityToPath :: Entity -> String
-entityToPath entity = "assets/" ++ entityId entity ++ ".png"
+entityToPath entity = assetFolder ++ "/" ++ entityName entity ++ ".png"
 
 extractGame :: Either ParseError Game -> Game
 extractGame (Right g) = g
@@ -164,46 +167,45 @@ renderLayout = pictures . render2dWithCoords
             , (x, tile) <- zip [0..] row]  
 
 renderItems :: [Item] -> Picture
-renderItems = pictures . map (renderWithCo ((+1) . itemX) ((+1) . itemY) renderItem)
+renderItems = pictures . map (renderWithCo itemX itemY renderItem)
 
 renderItem :: Item -> Picture
 renderItem = png . itemToPath
 
 renderEntities :: [Entity] -> Picture
-renderEntities = pictures . map (renderWithCo ((+1) . entityX) ((+1) . entityY) renderEntity)
+renderEntities = pictures . map (renderWithCo entityX entityY renderEntity)
 
 renderEntity :: Entity -> Picture
-renderEntity = png . entityToPath
+renderEntity entity = pictures [entityPic, entityHpPic]
+    where entityPic = (png . entityToPath) entity
+          entityHpPic = (translate 0 20 . maybe blank renderHp . entityHp) entity
+
+renderHp ::  Int -> Picture
+renderHp eHp = pictures [hpContainer, hpText]
+    where hpContainer = color black $ rectangleSolid 10 10
+          hpText      = (translate (-4) (-2) . scale 0.5 0.5 . color white . renderText . show) eHp
 
 renderInventoryItems :: [Item] -> Picture
 renderInventoryItems items = pictures spacedOutItemHolders 
     where spacedOutItemHolders = translateCumulative itemHolderSpace 0 itemPics
           itemPics = map renderInventoryItem (extendToLength 9 items)
 
-
 renderInventoryItem :: Maybe Item -> Picture
 renderInventoryItem Nothing     = itemHolder 
-renderInventoryItem (Just item) = pictures [itemHolder, resizedItem]
+renderInventoryItem (Just item) = pictures [itemHolder, resizedItem, itemValuePic]
     where resizedItem = scale 2.1875 2.1875 (renderItem item) -- 70 / 32
+          itemValuePic = (translate (-32) 20 . color white . renderText . show . itemValue) item
 
 renderInventory :: [Item] -> Picture
 renderInventory items = pictures [inventoryBackground, inventoryItems] 
     where inventoryItems = translate (-itemHolderSpace * 4) 0 (renderInventoryItems items)
 
 renderText :: String -> Picture
-renderText = color white . scale 0.1 0.1 . text
+renderText = scale 0.1 0.1 . text
 
--- TODO deze functie moet hier weg
-functionDescription :: String -> Arguments -> String
-functionDescription "increasePlayerHp" (Ids [id])       = "Increase hp with " ++ id
-functionDescription "leave"            (Ids [])         = "Leave and do Nothing"
-functionDescription "decreaseHp"       (Ids [id1, id2]) = "Decrease hp of " ++ id1 ++ " with " ++ id2
-functionDescription "retrieveItem"     (Ids [id])       = "Retrieve " ++ id
-functionDescription "useItem"          (Ids [id])       = "Use " ++ id
-functionDescription name               _                = error "no description for function " ++ name
 
 renderAction :: ConditionalAction -> Picture
-renderAction act = renderText (functionDescription functionName functionArgs)
+renderAction act = color white $ renderText (functionDescription functionName functionArgs)
     where functionName = name (action act)
           functionArgs = arguments (action act)
 
@@ -216,11 +218,15 @@ renderActionPanel (PanelMode On selectorPos actions) = pictures [actionPanelEmpt
     where actionPics = translate (-130) 150 $ renderActions actions
           selector = translate (-5) (fromIntegral (-selectorPos + 3) * 50 - 2) selectorLine
 
+renderPlayerHp :: Int -> Picture
+renderPlayerHp = scale 4 4 . renderText . ("hp: " ++)  . show
+
 renderGame :: Game -> Picture
-renderGame g = pictures [actionPanel, inv, lvl]
+renderGame g = pictures [actionPanel, inv, lvl, playerHp]
     where inv = (translate 0 (-300) . renderInventory . inventory . player) g
           lvl = (translate 190 50 . renderLevel . head . levels) g
-          actionPanel = translate (-250) 50 $ renderActionPanel (panelMode g) 
+          actionPanel = translate (-250) 50 $ renderActionPanel (panelMode g)
+          playerHp = translate (-400) 280 $ renderPlayerHp ((hp . player) g)
 
 -- stap in de game
 step :: Float -> Game -> Game

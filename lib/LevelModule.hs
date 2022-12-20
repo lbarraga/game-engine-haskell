@@ -104,7 +104,7 @@ getLevelObjectsOnPos :: (Level -> [a]) -> (a -> Int) -> (a -> Int) -> (Int, Int)
 getLevelObjectsOnPos getObjs getX getY pos = filter (isOnPosition pos getX getY) . getObjs
 
 isOnPosition :: (Int, Int) -> (a -> Int) -> (a -> Int) -> a -> Bool
-isOnPosition (x, y) getX getY levelObj = (x - 1) == getX levelObj && (y - 1) == getY levelObj
+isOnPosition (x, y) getX getY levelObj = x == getX levelObj && y == getY levelObj
 
 -- -------------------------------------------------
 --
@@ -113,16 +113,28 @@ isOnPosition (x, y) getX getY levelObj = (x - 1) == getX levelObj && (y - 1) == 
 onEntity :: (Entity -> Entity) -> Entity -> Level -> Level
 onEntity f entity lvl = lvl{entities = replaceObjInList entity (f entity) (entities lvl)}
 
-decreaseHp :: Id -> Item -> Level -> Level
-decreaseHp eId playerWeapon lvl = onEntity (onEntityHp (subtract damage)) entity lvl
-    where entity = searchEntity eId (entities lvl)
-          damage = itemValue playerWeapon
+onEntities :: ([Entity] -> [Entity]) -> Level -> Level
+onEntities f lvl = lvl{entities = f (entities lvl)}
+
+onItems :: ([Item] -> [Item]) -> Level -> Level
+onItems f lvl = lvl{items = f (items lvl)}
+
+decreaseHp :: Item -> Entity ->  Level -> Level
+decreaseHp playerWeapon entity
+  | eHp - damage <= 0 = removeEntityFromLevel entity
+  | otherwise         = onEntity (onEntityHp (subtract damage)) entity
+  where damage = itemValue playerWeapon
+        eHp = fromJust $ entityHp entity
+
+removeFromItemLevel :: Item -> Level -> Level
+removeFromItemLevel item = onItems (filter (/= item)) 
+
+removeEntityFromLevel :: Entity -> Level -> Level
+removeEntityFromLevel entity = onEntities (filter (/= entity)) 
 
 -- -------------------------------------------------
 --
 -- -------------------------------------------------
-
-
 
 -- -------------------------------------------------
 --

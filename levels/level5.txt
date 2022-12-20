@@ -1,0 +1,215 @@
+player: {
+    hp: 50,
+    inventory: [
+        {
+            id: "dagger",
+            x: 0,
+            y: 0,
+            name: "Dolk",
+            description: "Basis schade tegen monsters",
+            useTimes: infinite,
+            value: 10,
+
+            actions: {}
+        }
+    ]
+}
+
+levels: [
+    {
+        layout: {
+            | * * * * * * * * * * * * * * * * * * * * *
+            | * . . . . * . . . * . * . . . . . . . e *
+            | * * * * . * . * . * . * * * * . * * * * *
+            | * . . . . * . * . * . * . . . . * . . . *
+            | * . * * * * . * * * . * . * * * * * . * *
+            | * . . . . * . * . . . * . . . . * . . . *
+            | * . * * . . . . . * * * * * * . * * * . *
+            | * . . * * * * * . . . . . . * . . . * . *
+            | * * . * . . . * * * * * * . * . * . * . *
+            | * . . . . * . . . * . . . . * . * . * . *
+            | * . * . . * . * . * . * . . . . * . * . *
+            | * . * * . * . * . * . * . * * * * . * . *
+            | * s . . . * . * . * . * . . . . . . . . *
+            | * * * * * * * * * * * * * * * * * * * * *
+        },
+
+        items: [
+            {
+                id: "key",
+                x: 10,
+                y: 12,
+                name: "Sleutel",
+                description: "Deze sleutel kan een deur openen",
+                useTimes: 1,
+                value: 0,
+                actions: {
+                    [not(inventoryFull())] retrieveItem(key),
+                    [] leave()
+                }
+            },
+            {
+                id: "sword",
+                x: 8,
+                y: 1,
+                name: "Zwaard",
+                description: "Meer schade tegen monsters",
+                useTimes: infinite,
+                value: 25,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(sword),
+                    [] leave()
+                }
+            },
+            {
+                id: "potion1",
+                x: 1,
+                y: 12,
+                name: "Levensbrouwsel",
+                description: "Geeft een aantal levenspunten terug",
+                useTimes: 1,
+                value: 50,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(potion1),
+                    [] leave()
+                }
+            },
+                        {
+                id: "potion2",
+                x: 2,
+                y: 12,
+                name: "Levensbrouwsel",
+                description: "Geeft een aantal levenspunten terug",
+                useTimes: 1,
+                value: 50,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(potion2),
+                    [] leave()
+                }
+            },
+                        {
+                id: "potion3",
+                x: 3,
+                y: 12,
+                name: "Levensbrouwsel",
+                description: "Geeft een aantal levenspunten terug",
+                useTimes: 1,
+                value: 50,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(potion3),
+                    [] leave()
+                }
+            },
+                        {
+                id: "potion4",
+                x: 8,
+                y: 10,
+                name: "Levensbrouwsel",
+                description: "Geeft een aantal levenspunten terug",
+                useTimes: 1,
+                value: 50,
+
+                actions: {
+                    [not(inventoryFull())] retrieveItem(potion4),
+                    [] leave()
+                }
+            }
+        ],
+
+        entities: [
+            {
+                id: "devil1",
+                x: 6,
+                y: 7,
+                name: "Duivel",
+                description: "Een monster uit de hel",
+                hp: 50,
+                value: 5,
+
+                actions: {
+                    [inventoryContains(potion1)] increasePlayerHp(potion1),
+                    [inventoryContains(potion2)] increasePlayerHp(potion2),
+                    [inventoryContains(potion3)] increasePlayerHp(potion3),
+                    [inventoryContains(potion4)] increasePlayerHp(potion4),
+                    [inventoryContains(sword)] decreaseHp(devil1, sword),
+                    [] decreaseHp(devil1, dagger),
+                    [] leave()
+                }
+            },
+            {
+                id: "devil2",
+                x: 6,
+                y: 5,
+                name: "Duivel",
+                description: "Een monster uit de hel",
+                hp: 50,
+                value: 5,
+
+                actions: {
+                    [inventoryContains(potion1)] increasePlayerHp(potion1),
+                    [inventoryContains(potion2)] increasePlayerHp(potion2),
+                    [inventoryContains(potion3)] increasePlayerHp(potion3),
+                    [inventoryContains(potion4)] increasePlayerHp(potion4),
+                    [inventoryContains(sword)] decreaseHp(devil2, sword),
+                    [] decreaseHp(devil2, dagger),
+                    [] leave()
+                }
+            },
+                        {
+                id: "devil3",
+                x: 19,
+                y: 6,
+                name: "Duivel",
+                description: "Een monster uit de hel",
+                hp: 50,
+                value: 5,
+
+                actions: {
+                    [inventoryContains(potion1)] increasePlayerHp(potion1),
+                    [inventoryContains(potion2)] increasePlayerHp(potion2),
+                    [inventoryContains(potion3)] increasePlayerHp(potion3),
+                    [inventoryContains(potion4)] increasePlayerHp(potion4),
+                    [inventoryContains(sword)] decreaseHp(devil3, sword),
+                    [] decreaseHp(devil3, dagger),
+                    [] leave()
+                }
+            },
+            {
+                id: "devil4",
+                x: 1,
+                y: 10,
+                name: "Duivel",
+                description: "Een monster uit de hel",
+                hp: 50,
+                value: 5,
+
+                actions: {
+                    [inventoryContains(potion1)] increasePlayerHp(potion1),
+                    [inventoryContains(potion2)] increasePlayerHp(potion2),
+                    [inventoryContains(potion3)] increasePlayerHp(potion3),
+                    [inventoryContains(potion4)] increasePlayerHp(potion4),
+                    [inventoryContains(sword)] decreaseHp(devil4, sword),
+                    [] decreaseHp(devil4, dagger),
+                    [] leave()
+                }
+            },
+            {
+                id: "door",
+                x: 18,
+                y: 9,
+                name: "Deur",
+                description: "Deze deur kan geopend worden met een sleutel",
+                direction: up,
+
+                actions: {
+                    [inventoryContains(key)] useItem(key),
+                    [] leave()
+                }
+            }
+        ]
+    }
+]
