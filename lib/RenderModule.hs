@@ -10,9 +10,8 @@ import ParserModule (parseGameFile)
 import Text.Parsec (ParseError)
 import Data.Maybe (fromJust)
 import GHC.IO (unsafePerformIO)
-import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction, functionDescription)
+import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction, functionDescription, nextLevel, hasEndGame, hasNextLevel)
 import Debug.Trace (trace)
-import TypeModule (PanelMode(panelActions))
 
 
 -- Framerate van het spel.
@@ -38,7 +37,7 @@ backgroundColor :: Color
 backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
 
 initGame :: Game
-initGame = extractGame $ parseGameFile "levels/level3.txt" 
+initGame = extractGame $ parseGameFile "levels/level4.txt" 
 
 assetFolder :: String
 assetFolder = "assets/fantasy"
@@ -213,8 +212,8 @@ renderActions :: [ConditionalAction] -> Picture
 renderActions = pictures . translateCumulative 0 (-50) . map renderAction 
 
 renderActionPanel :: PanelMode -> Picture
-renderActionPanel (PanelMode Off _ _) = blank
-renderActionPanel (PanelMode On selectorPos actions) = pictures [actionPanelEmpty, actionPics, selector]
+renderActionPanel (PanelMode Off _ _ _ ) = blank
+renderActionPanel (PanelMode On selectorPos actions _) = pictures [actionPanelEmpty, actionPics, selector]
     where actionPics = translate (-130) 150 $ renderActions actions
           selector = translate (-5) (fromIntegral (-selectorPos + 3) * 50 - 2) selectorLine
 
@@ -256,8 +255,10 @@ handleActionPanelInput _ game = game
 
 handleDirectionInput :: Dir -> Game -> Game
 handleDirectionInput dir game
-  | hasActionInDirGame dir game = togglePanelModeOn game (getActionFromDirectionGame dir game)
-  | canMoveGame dir game = movePlayerGame dir game
+  | hasActionInDirGame dir game              = togglePanelModeOn game (getActionFromDirectionGame dir game)
+  | canMoveGame dir game                     = movePlayerGame dir game
+  | hasEndGame dir game && hasNextLevel game = nextLevel game
+  | hasEndGame dir game                      = game
   | otherwise = game
 
 main :: IO ()

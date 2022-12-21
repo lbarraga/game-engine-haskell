@@ -102,7 +102,8 @@ data PanelStatus = On | Off deriving (Eq, Show)
 data PanelMode = PanelMode{
     status :: PanelStatus,
     selectorPos :: Int,
-    panelActions :: [ConditionalAction]
+    panelActions :: [ConditionalAction],
+    actionEntity :: Maybe Entity
 } deriving (Eq, Show)
 
 -- | Een Game heeft een speler en een lijst van levels.

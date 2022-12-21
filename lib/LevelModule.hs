@@ -4,18 +4,16 @@ import TypeModule
 import PlayerModule -- TODO weg
 import Data.Maybe (listToMaybe, fromJust)
 import Data.List (elemIndices)
-import TypeModule (ConditionalAction, Level (entities))
-
 
 -- -------------------------------------------------
 -- Een aantal constaten
 -- -------------------------------------------------
 
 wall, empty, speler, end :: Char
-wall  = '*'
-empty = '.'
+wall   = '*'
+empty  = '.'
 speler = 's'
-end   = 'e'
+end    = 'e'
 
 -- -------------------------------------------------
 -- Methodes met betrekking tot het bewegen van de 
@@ -64,7 +62,7 @@ anyOnPosition hasFunctions pos level = any (\f -> f pos level) hasFunctions
 -- | De speler kan naar een bepaalde positie gaan, 
 -- | als daar geen entity, item of muur is
 canMoveTo :: (X, Y) -> Level -> Bool
-canMoveTo pos lvl = not $ anyOnPosition [hasEntity, hasItem, hasWall] pos lvl
+canMoveTo pos = not . anyOnPosition [hasEntity, hasItem, hasTile wall, hasTile end] pos
 
 -- -------------------------------------------------
 --
@@ -78,18 +76,24 @@ hasEntity = hasObjectOnPos entities
 hasItem :: (X, Y) -> Level -> Bool
 hasItem = hasObjectOnPos items
 
--- | of er op een bepaalde positie een muur is.
-hasWall :: (X, Y) -> Level -> Bool
-hasWall (x, y) = (==wall) . (!! x) . (!! y) . layout 
+hasEndInDir :: Dir -> Level -> Bool
+hasEndInDir dir level = hasTile end (getNewPlayerPos dir level) level
+
+-- | Of er op een bepaakde positie een bepaalde tile is (verschillende tiles uit de layout).
+hasTile :: Char -> (X, Y) -> Level -> Bool
+hasTile tile (x, y) = (==tile) . (!! x) . (!! y) . layout
 
 -- | Gegeven een functie die de objecten uit het level haalt, en een positie,
 -- | evalueer True als een van de ge-extraheerde objecten wich op de positie bevind
 hasObjectOnPos :: GameObject a => (Level -> [a]) -> (X, Y) -> Level -> Bool  
 hasObjectOnPos getObjs pos = not . null . getObjectsOnPos getObjs pos 
 
+-- | Een positie heeft een actie als er een item of een entity is.
 hasAction :: (X, Y) -> Level -> Bool
 hasAction = anyOnPosition [hasItem, hasEntity]
 
+
+-- | Of er een actie is in een bepaalde richting gezien vanaf de speler.
 hasActionInDir :: Dir -> Level -> Bool
 hasActionInDir pos lvl = hasAction (getNewPlayerPos pos lvl) lvl 
 
@@ -111,10 +115,10 @@ getActionsFromObject getObject = getActions . getObject
 
 -- | Haal de acties op van een item of entity in een gegeven richting 
 -- | gezien vanaf de speler.
-getActionFromDirection :: Dir -> Level -> [ConditionalAction]
+getActionFromDirection :: Dir -> Level -> ([ConditionalAction], Maybe Entity)
 getActionFromDirection dir lvl
-  | hasItem pos lvl   = getActionsFromItem pos lvl
-  | hasEntity pos lvl = getActionsFromEntity pos lvl
+  | hasItem pos lvl   = (getActionsFromItem pos lvl, Nothing)
+  | hasEntity pos lvl = (getActionsFromEntity pos lvl, Just (getEntityOnPos pos lvl))
   | otherwise = error $ "No actions on position " ++ show pos
   where pos = getNewPlayerPos dir lvl
 

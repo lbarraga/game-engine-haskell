@@ -46,7 +46,7 @@ pListElement valueParser = spaces *> valueParser <* (string ",\n" <|> string "\n
 -- | Deze parser zal worden opgeroepen op het bestand.
 pGame :: CharParser () Game
 pGame = Game <$> (spaces  *> pPlayer) <*> (spaces  *> pLevels) 
-             <*> (PanelMode Off 0 [] <$ string "") -- kleine hack
+             <*> (PanelMode Off 0 [] Nothing  <$ string "") -- kleine hack
 
 
 -- | Parsen van meerdere levels
