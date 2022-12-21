@@ -9,12 +9,12 @@ import Graphics.Gloss.Juicy
 import ParserModule (parseGameFile)
 import Text.Parsec (ParseError)
 import Data.Maybe (fromJust)
-import GHC.IO (unsafePerformIO)
-import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction, functionDescription, nextLevel, hasEndGame, hasNextLevel)
+import System.Directory (listDirectory)
+import GameModule
 import Debug.Trace (trace)
 import EngineModule (EngineState (Playing, Won, LevelChooser), chooseLevelFile)
-import LevelChooserModule (LevelSelector (levelFiles, levelSelectorPos, LevelSelector), initLevelSelector, moveLevelSelector)
-
+import LevelChooserModule (LevelSelector (levelFiles, levelSelectorPos, LevelSelector), initLevelSelectorIO, moveLevelSelector)
+import Data.Map (Map, fromList, (!), member)
 
 -- Framerate van het spel.
 fps :: Int
@@ -38,20 +38,11 @@ window = InWindow "RPG engine" (pxlWidth, pxlHeight) windowPosition
 backgroundColor :: Color
 backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
 
-initEngine :: EngineState
-initEngine = LevelChooser initLevelSelector
-
-initGame :: Game
-initGame = parseGameFile "levels/level4.txt" 
+initEngineIO :: IO EngineState
+initEngineIO = LevelChooser <$> initLevelSelectorIO
 
 assetFolder :: String
 assetFolder = "assets/fantasy"
-
-wallPic, emptyPic, playerPic, endPic :: Picture
-wallPic   = png $ assetFolder ++ "/wall.png"
-emptyPic  = png $ assetFolder ++ "/floor.png" 
-playerPic = png $ assetFolder ++ "/player.png"
-endPic    = png $ assetFolder ++ "/end.png"
 
 itemHolderInset, itemHolderSize, itemHolderSpace, inventoryWidth, inventoryHeight :: Float
 inventoryWidth = 700
@@ -92,25 +83,41 @@ levelContainerEmpty :: Picture
 levelContainerEmpty = Color levelContainerColor $ rectangleWire lvlContWidth lvlContHeight
 
 winScreen :: Picture 
-winScreen = (translate (-110) 0 . scale 5 5 . renderText) "You win!"
+winScreen = pictures [win, info]
+    where win = (translate (-110) 0 . scale 5 5 . renderText) "You win!"
+          info = (translate (-270) (-100) . scale 2 2 . renderText) "Druk op SPATIE om een nieuw level te kiezen."
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
 -- Ga van een filename naar de picture van die file
-png :: String -> Picture
-png = checkImage . unsafePerformIO . loadJuicyPNG
+
+loadAssets :: IO (Map String Picture)
+loadAssets = do
+    fileNames    <- listDirectory assetFolder
+    pictures <- mapM (png . ((assetFolder ++ "/") ++)) fileNames
+    let names = map baseName fileNames
+    return $ fromList (zip names pictures)
+
+png :: String -> IO Picture
+png = fmap checkImage . loadJuicyPNG
 
 checkImage :: Maybe Picture -> Picture
 checkImage (Just pic) = pic
 checkImage Nothing    = error "Could not load asset."
 
-itemToPath :: Item -> String
-itemToPath item = assetFolder ++ "/" ++ itemName item ++ ".png"
+baseName :: String -> String
+baseName = takeWhile (/= '.')
 
-entityToPath :: Entity -> String
-entityToPath entity = assetFolder ++ "/" ++ entityName entity ++ ".png"
+--itemToPath :: Item -> String
+--itemToPath item = assetFolder ++ "/" ++ itemName item ++ ".png"
+
+--entityToPath :: Entity -> String
+--entityToPath entity = assetFolder ++ "/" ++ entityName entity ++ ".png"
+
+objectToPic :: GameObject a => AssetMap -> a -> Picture
+objectToPic assetMap = (assetMap !) . getName
 
 co2Gloss :: Int -> Int -> (Float, Float)
 co2Gloss x y = (fromIntegral (x * 32), fromIntegral (y * 32))
@@ -139,48 +146,54 @@ isKey :: SpecialKey -> Event -> Bool
 isKey k1 (EventKey (SpecialKey k2) Down _ _) = k1 == k2
 isKey _  _                                   = False
 
+(!!!) :: AssetMap -> String -> Picture
+(!!!) assetMap key
+  | key `member` assetMap = assetMap ! key
+  | otherwise = error $ "Key '" ++ key ++ "' is niet gevonden!"
+
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
-renderTile :: Char -> Picture
-renderTile '.' = emptyPic
-renderTile '*' = wallPic
-renderTile 's' = pictures [emptyPic, playerPic]
-renderTile 'e' = pictures [emptyPic, endPic] 
-renderTile _   = error "no tile"
+renderTile :: AssetMap -> Char -> Picture
+renderTile am '.' = am !!! "floor"
+renderTile am '*' = am !!! "wall"
+renderTile am 's' = pictures [am !!! "floor", am !!! "player"]
+renderTile am 'e' = pictures [am !!! "floor", am !!! "end"] 
+renderTile _  _ = error "no tile"
 
-renderLevel :: Level -> Picture
-renderLevel level = pictures [translate levelDx levelDy scaledLevel , levelContainerEmpty]
+renderLevel :: AssetMap -> Level -> Picture
+renderLevel assetMap level = pictures [translate levelDx levelDy scaledLevel , levelContainerEmpty]
     where (levelDx, levelDy) = (-(16 * (lWidth - 1) * scaleSize), -(16 * (lHeight - 1) * scaleSize))
           scaledLevel = scale scaleSize scaleSize levelPic  
-          levelPic = pictures [renderLayout (layout level), renderItems (items level), renderEntities (entities level)]
+          levelPic = pictures [renderLayout assetMap (layout level), renderObjects assetMap (items level), renderObjects assetMap (entities level)]
           scaleSize = min (lvlContHeight / (32 * lHeight)) (lvlContWidth / ( 32 * lWidth))
           (lWidth, lHeight) = (getLevelWidth level, getLevelHeight level)
 
-renderWithCo :: (a -> Int) -> (a -> Int) -> (a -> Picture) -> a -> Picture
-renderWithCo getX getY render obj = translate dx dy $ render obj
-    where dx = 32 * fromIntegral (getX obj)
-          dy = 32 * fromIntegral (getY obj)
+renderWithCo :: Int -> Int -> Picture -> Picture
+renderWithCo x y = translate dx dy
+    where dx = 32 * fromIntegral x
+          dy = 32 * fromIntegral y
 
-renderLayout :: Layout -> Picture
-renderLayout = pictures . render2dWithCoords
-    where render2dWithCoords l = [ renderWithCo (const x) (const y) renderTile tile 
+renderLayout :: AssetMap -> Layout -> Picture
+renderLayout assetMap = pictures . render2dWithCoords
+    where render2dWithCoords l = [ renderWithCo  x y (renderTile assetMap tile)
             | (y, row)  <- zip [0..] l
             , (x, tile) <- zip [0..] row]  
 
-renderItems :: [Item] -> Picture
-renderItems = pictures . map (renderWithCo itemX itemY renderItem)
+renderObjects :: GameObject a => AssetMap -> [a] -> Picture
+renderObjects assetMap = pictures . map renderObject 
+    where renderObject obj = renderWithCo (getX obj) (getY obj) (assetMap !!! getName obj)
 
-renderItem :: Item -> Picture
-renderItem = png . itemToPath
+--renderItem :: Item -> Picture
+--renderItem = png . itemToPath
 
-renderEntities :: [Entity] -> Picture
-renderEntities = pictures . map (renderWithCo entityX entityY renderEntity)
+-- renderEntities :: GameObject a => (a -> Picture) -> [Entity] -> Picture
+-- renderEntities getAsset = pictures . map (renderWithCo getAsset)
 
-renderEntity :: Entity -> Picture
-renderEntity entity = pictures [entityPic, entityHpPic]
-    where entityPic = (png . entityToPath) entity
+renderEntity :: AssetMap -> Entity -> Picture
+renderEntity assetMap entity = pictures [entityPic, entityHpPic]
+    where entityPic = assetMap !!! getName entity
           entityHpPic = (translate 0 20 . maybe blank renderHp . entityHp) entity
 
 renderHp ::  Int -> Picture
@@ -188,20 +201,20 @@ renderHp eHp = pictures [hpContainer, hpText]
     where hpContainer = color black $ rectangleSolid 10 10
           hpText      = (translate (-4) (-2) . scale 0.5 0.5 . color white . renderText . show) eHp
 
-renderInventoryItems :: [Item] -> Picture
-renderInventoryItems items = pictures spacedOutItemHolders 
+renderInventoryItems :: AssetMap -> [Item] -> Picture
+renderInventoryItems assetMap items = pictures spacedOutItemHolders 
     where spacedOutItemHolders = translateCumulative itemHolderSpace 0 itemPics
-          itemPics = map renderInventoryItem (extendToLength 9 items)
+          itemPics = map (renderInventoryItem assetMap) (extendToLength 9 items)
 
-renderInventoryItem :: Maybe Item -> Picture
-renderInventoryItem Nothing     = itemHolder 
-renderInventoryItem (Just item) = pictures [itemHolder, resizedItem, itemValuePic]
-    where resizedItem = scale 2.1875 2.1875 (renderItem item) -- 70 / 32
+renderInventoryItem :: AssetMap -> Maybe Item -> Picture
+renderInventoryItem _         Nothing     = itemHolder 
+renderInventoryItem assetMap (Just item)  = pictures [itemHolder, resizedItem, itemValuePic]
+    where resizedItem = scale 2.1875 2.1875 (assetMap !!! getName item) -- 70 / 32
           itemValuePic = (translate (-32) 20 . color white . renderText . show . itemValue) item
 
-renderInventory :: [Item] -> Picture
-renderInventory items = pictures [inventoryBackground, inventoryItems] 
-    where inventoryItems = translate (-itemHolderSpace * 4) 0 (renderInventoryItems items)
+renderInventory :: AssetMap -> [Item] -> Picture
+renderInventory assetMap items = pictures [inventoryBackground, inventoryItems] 
+    where inventoryItems = translate (-itemHolderSpace * 4) 0 (renderInventoryItems assetMap items)
 
 renderText :: String -> Picture
 renderText = scale 0.1 0.1 . text
@@ -228,10 +241,10 @@ renderSelectorLine pos width hInset col = translate (-5) (fromIntegral (-pos + 3
 renderPlayerHp :: Int -> Picture
 renderPlayerHp = scale 4 4 . renderText . ("hp: " ++)  . show
 
-renderGame :: Game -> Picture
-renderGame g = pictures [actionPanel, inv, lvl, playerHp]
-    where inv = (translate 0 (-300) . renderInventory . inventory . player) g
-          lvl = (translate 190 50 . renderLevel . head . levels) g
+renderGame :: AssetMap -> Game -> Picture
+renderGame getAsset g = pictures [actionPanel, inv, lvl, playerHp]
+    where inv = (translate 0 (-300) . renderInventory getAsset . inventory . player) g
+          lvl = (translate 190 50 . renderLevel getAsset . head . levels) g
           actionPanel = translate (-250) 50 $ renderActionPanel (panelMode g)
           playerHp = translate (-400) 280 $ renderPlayerHp ((hp . player) g)
 
@@ -241,24 +254,24 @@ renderLevelChooser ls = scale 2 2 $ pictures [selector, fileNames, helpText]
           fileNames = (translate (-30) 75 . pictures . translateCumulative 0 (-25) . map renderText . levelFiles) ls
           helpText = (translate (-140) 120 . scale 3 3 . renderText) "Kies een level."
 
-renderEngine :: EngineState -> Picture
-renderEngine (Playing game)     = renderGame game
-renderEngine Won                = winScreen
-renderEngine (LevelChooser sel) = renderLevelChooser sel
+renderEngine :: AssetMap -> EngineState -> Picture
+renderEngine assetMap (Playing game)     = renderGame assetMap game
+renderEngine _        Won                = winScreen
+renderEngine _        (LevelChooser sel) = renderLevelChooser sel
 
 -- stap in de game
 step :: Float -> EngineState -> EngineState
 step _ engine = engine
 
-handleEngineInput :: Event -> EngineState -> EngineState
-handleEngineInput ev (Playing game)     = handleGameInput ev game
-handleEngineInput ev Won                = handleWinScreenInput ev
-handleEngineInput ev (LevelChooser sel) = handleLevelChooserInput ev sel
+handleEngineInput :: LevelSelector -> Event -> EngineState ->  EngineState
+handleEngineInput _  ev (Playing game)     = handleGameInput ev game
+handleEngineInput ls ev Won                = handleWinScreenInput ev ls
+handleEngineInput _  ev (LevelChooser sel) = handleLevelChooserInput ev sel
 
-handleWinScreenInput :: Event  -> EngineState
-handleWinScreenInput ev 
+handleWinScreenInput :: Event -> LevelSelector -> EngineState
+handleWinScreenInput ev initLevelSelector
   | isKey KeySpace ev  = LevelChooser initLevelSelector
-handleWinScreenInput _ = Won
+handleWinScreenInput _ _ = Won
 
 handleLevelChooserInput :: Event -> LevelSelector -> EngineState
 handleLevelChooserInput ev
@@ -282,12 +295,11 @@ handlePlayerInput ev
 handlePlayerInput _   = Playing
 
 handleActionPanelInput :: Event -> Game -> Game
-handleActionPanelInput ev game
-  | isKey KeyDown  ev = moveSelector D actionsLength game 
-  | isKey KeyUp    ev = moveSelector U actionsLength game
-  | isKey KeySpace ev = (togglePanelModeOff . selectAction) game
-  where actionsLength = (length . panelActions . panelMode) game
-handleActionPanelInput _ game = game
+handleActionPanelInput ev 
+  | isKey KeyDown  ev = moveSelector D 
+  | isKey KeyUp    ev = moveSelector U 
+  | isKey KeySpace ev = (togglePanelModeOff . selectAction)
+handleActionPanelInput _ = id 
 
 handleDirectionInput :: Dir -> Game -> EngineState
 handleDirectionInput dir game
@@ -297,8 +309,14 @@ handleDirectionInput dir game
   | hasEndGame dir game                      = Won
   | otherwise = Playing game
 
+type AssetMap = Map String Picture
+
 main :: IO ()
-main = play window backgroundColor fps initEngine renderEngine handleEngineInput step
+main = do 
+    initEngine <- initEngineIO
+    initLevelSelector <- initLevelSelectorIO
+    assetMap <- loadAssets
+    play window backgroundColor fps initEngine (renderEngine assetMap) (handleEngineInput initLevelSelector) step
 
 
 

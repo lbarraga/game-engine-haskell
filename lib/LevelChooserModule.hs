@@ -1,24 +1,26 @@
 module LevelChooserModule where
 
 import TypeModule
-import GHC.IO (unsafePerformIO) 
 import System.Directory (listDirectory)
 import Data.List (sort)
+import Control.Monad.IO.Class (MonadIO(liftIO))
 
 data LevelSelector = LevelSelector{
     levelFiles :: [String],
     levelSelectorPos :: Int
 } deriving (Eq, Show)
 
-listDirectoryLevels :: String -> [String]
-listDirectoryLevels = sort . filter (endsWith ".txt") . unsafePerformIO . listDirectory 
+listDirectoryLevels :: String -> IO [String]
+listDirectoryLevels = (sort <$>) . (filter (endsWith ".txt") <$>) . listDirectory 
 
 endsWith :: String -> String -> Bool
 endsWith with = (==with) . reverse . take (length with) . reverse
 
 
-initLevelSelector :: LevelSelector
-initLevelSelector = LevelSelector (listDirectoryLevels "levels") 0
+initLevelSelectorIO :: IO LevelSelector
+initLevelSelectorIO = do
+    lvlString <- listDirectoryLevels "levels"
+    return (LevelSelector lvlString 0)
 
 moveLevelSelector :: Dir -> LevelSelector -> LevelSelector
 moveLevelSelector U = onLevelSelectorPos (subtract 1)

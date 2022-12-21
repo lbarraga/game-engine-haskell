@@ -7,6 +7,7 @@ import GHC.Integer (integerToInt)
 import Debug.Trace (trace)
 import Data.Maybe (fromJust)
 import ParserModule (parseGameFile)
+import Data.List (nub)
 
 
 onLevels :: ([Level] -> [Level]) -> Game -> Game
@@ -75,13 +76,13 @@ togglePanelModeOff game = game{panelMode = PanelMode Off 0 [] Nothing}
 
 -- | Pas een functie toe op de selector positie van het actie paneel 
 onSelectorPos :: (Int -> Int) -> Game -> Game
-onSelectorPos f g@Game{panelMode = pm} = g{panelMode = pm{selectorPos = f (selectorPos pm)}}
+onSelectorPos f g@Game{panelMode = pm} = g{panelMode = pm{selectorPos = ((`mod` length (panelActions pm)) . f) (selectorPos pm)}}
 
 -- | Move de selector in het actie paneel.
-moveSelector :: Dir -> Int -> Game -> Game
-moveSelector U actionsLength = onSelectorPos ((`mod` actionsLength) . subtract 1)
-moveSelector D actionsLength = onSelectorPos ((`mod` actionsLength) . (+ 1))
-moveSelector _ _ = error "Cannot move selector left or right"
+moveSelector :: Dir -> Game -> Game
+moveSelector U = onSelectorPos (subtract 1)
+moveSelector D = onSelectorPos (+ 1)
+moveSelector _ = error "Cannot move selector left or right"
 
 debug :: a -> String -> a
 debug = flip trace
@@ -157,9 +158,9 @@ decreaseHpGame weapon enemy = restartIfDead
 -- -------------------------------------------------
 
 restartIfDead :: Game -> Game
-restartIfDead game
-  | isDead (player game) = parseGameFile "levels/level4.txt"
-  | otherwise            = game
+restartIfDead = id
+  -- | isDead (player game) = parseGameFile "levels/level4.txt"
+  -- | otherwise            = game
 
 getPlayerweapon :: Id -> Game -> Item
 getPlayerweapon id = searchInInventory id . player 
@@ -170,6 +171,14 @@ getItem id = searchItem id . items . getCurrentLevel
 getEntityGame :: Id -> Game -> Entity
 getEntityGame id = searchEntity id . entities . getCurrentLevel
 
+getAllObjectNames :: GameObject a => (Level -> [a]) -> Game -> [String]
+getAllObjectNames getObjects = nub . map getName . concatMap getObjects . levels
+
+getAllEntityNames :: Game -> [String]
+getAllEntityNames = getAllObjectNames entities
+
+getAllItemNames :: Game -> [String]
+getAllItemNames = getAllObjectNames items
 
 
 

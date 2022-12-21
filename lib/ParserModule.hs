@@ -3,8 +3,8 @@ module ParserModule where
 import Numeric (readFloat, readHex, readSigned)
 import Text.ParserCombinators.Parsec
 import System.Exit (exitFailure)
-import GHC.IO (unsafePerformIO)
 import TypeModule
+import GHC.IO (unsafePerformIO)
 
 parseGameFileEither :: Either ParseError Game -> Game
 parseGameFileEither (Right g) = g
