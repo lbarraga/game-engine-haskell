@@ -12,6 +12,8 @@ import Data.Maybe (fromJust)
 import GHC.IO (unsafePerformIO)
 import GameModule (movePlayerGame, canMoveGame, getCurrentLevel, filterPossible, moveSelector, togglePanelModeOn, getActionFromDirectionGame, hasActionInDirGame, togglePanelModeOff, selectAction, functionDescription, nextLevel, hasEndGame, hasNextLevel)
 import Debug.Trace (trace)
+import EngineModule (EngineState (Playing, Won, LevelChooser), chooseLevelFile)
+import LevelChooserModule (LevelSelector (levelFiles, levelSelectorPos, LevelSelector), initLevelSelector, moveLevelSelector)
 
 
 -- Framerate van het spel.
@@ -30,14 +32,17 @@ pxlHeight = 750
 
 -- Het Gloss venster
 window :: Display
-window = InWindow "Patience" (pxlWidth, pxlHeight) windowPosition
+window = InWindow "RPG engine" (pxlWidth, pxlHeight) windowPosition
 
 -- Achtergrond kleur van het gloss venster
 backgroundColor :: Color
 backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
 
+initEngine :: EngineState
+initEngine = LevelChooser initLevelSelector
+
 initGame :: Game
-initGame = extractGame $ parseGameFile "levels/level4.txt" 
+initGame = parseGameFile "levels/level4.txt" 
 
 assetFolder :: String
 assetFolder = "assets/fantasy"
@@ -86,6 +91,9 @@ lvlContHeight = 500
 levelContainerEmpty :: Picture
 levelContainerEmpty = Color levelContainerColor $ rectangleWire lvlContWidth lvlContHeight
 
+winScreen :: Picture 
+winScreen = (translate (-110) 0 . scale 5 5 . renderText) "You win!"
+
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -103,10 +111,6 @@ itemToPath item = assetFolder ++ "/" ++ itemName item ++ ".png"
 
 entityToPath :: Entity -> String
 entityToPath entity = assetFolder ++ "/" ++ entityName entity ++ ".png"
-
-extractGame :: Either ParseError Game -> Game
-extractGame (Right g) = g
-extractGame (Left err) = error (show err)
 
 co2Gloss :: Int -> Int -> (Float, Float)
 co2Gloss x y = (fromIntegral (x * 32), fromIntegral (y * 32))
@@ -215,7 +219,11 @@ renderActionPanel :: PanelMode -> Picture
 renderActionPanel (PanelMode Off _ _ _ ) = blank
 renderActionPanel (PanelMode On selectorPos actions _) = pictures [actionPanelEmpty, actionPics, selector]
     where actionPics = translate (-130) 150 $ renderActions actions
-          selector = translate (-5) (fromIntegral (-selectorPos + 3) * 50 - 2) selectorLine
+          selector = renderSelectorLine selectorPos 250 50 white 
+
+renderSelectorLine :: Int -> Float -> Float -> Color -> Picture
+renderSelectorLine pos width hInset col = translate (-5) (fromIntegral (-pos + 3) * hInset - 2) selectorLine
+    where selectorLine = Color col $ rectangleSolid width 1 
 
 renderPlayerHp :: Int -> Picture
 renderPlayerHp = scale 4 4 . renderText . ("hp: " ++)  . show
@@ -227,23 +235,51 @@ renderGame g = pictures [actionPanel, inv, lvl, playerHp]
           actionPanel = translate (-250) 50 $ renderActionPanel (panelMode g)
           playerHp = translate (-400) 280 $ renderPlayerHp ((hp . player) g)
 
--- stap in de game
-step :: Float -> Game -> Game
-step _ game = game
+renderLevelChooser :: LevelSelector -> Picture
+renderLevelChooser ls = scale 2 2 $ pictures [selector, fileNames, helpText]
+    where selector = renderSelectorLine (levelSelectorPos ls) 50 25 black
+          fileNames = (translate (-30) 75 . pictures . translateCumulative 0 (-25) . map renderText . levelFiles) ls
+          helpText = (translate (-140) 120 . scale 3 3 . renderText) "Kies een level."
 
-handleInput :: Event -> Game -> Game
-handleInput ev game 
-  | panelStatus == On  = handleActionPanelInput ev game
+renderEngine :: EngineState -> Picture
+renderEngine (Playing game)     = renderGame game
+renderEngine Won                = winScreen
+renderEngine (LevelChooser sel) = renderLevelChooser sel
+
+-- stap in de game
+step :: Float -> EngineState -> EngineState
+step _ engine = engine
+
+handleEngineInput :: Event -> EngineState -> EngineState
+handleEngineInput ev (Playing game)     = handleGameInput ev game
+handleEngineInput ev Won                = handleWinScreenInput ev
+handleEngineInput ev (LevelChooser sel) = handleLevelChooserInput ev sel
+
+handleWinScreenInput :: Event  -> EngineState
+handleWinScreenInput ev 
+  | isKey KeySpace ev  = LevelChooser initLevelSelector
+handleWinScreenInput _ = Won
+
+handleLevelChooserInput :: Event -> LevelSelector -> EngineState
+handleLevelChooserInput ev
+  | isKey KeyUp    ev = LevelChooser . moveLevelSelector U
+  | isKey KeyDown  ev = LevelChooser . moveLevelSelector D
+  | isKey KeySpace ev = Playing      . chooseLevelFile 
+handleLevelChooserInput _ = LevelChooser
+
+handleGameInput :: Event -> Game -> EngineState
+handleGameInput ev game 
+  | panelStatus == On  = Playing $ handleActionPanelInput ev game
   | otherwise          = handlePlayerInput ev game
   where panelStatus = (status . panelMode) game
 
-handlePlayerInput :: Event -> Game -> Game
+handlePlayerInput :: Event -> Game -> EngineState
 handlePlayerInput ev
   | isKey KeyDown  ev = handleDirectionInput D
   | isKey KeyUp    ev = handleDirectionInput U
   | isKey KeyRight ev = handleDirectionInput R
   | isKey KeyLeft  ev = handleDirectionInput L
-handlePlayerInput _   = id
+handlePlayerInput _   = Playing
 
 handleActionPanelInput :: Event -> Game -> Game
 handleActionPanelInput ev game
@@ -253,16 +289,16 @@ handleActionPanelInput ev game
   where actionsLength = (length . panelActions . panelMode) game
 handleActionPanelInput _ game = game
 
-handleDirectionInput :: Dir -> Game -> Game
+handleDirectionInput :: Dir -> Game -> EngineState
 handleDirectionInput dir game
-  | hasActionInDirGame dir game              = togglePanelModeOn game (getActionFromDirectionGame dir game)
-  | canMoveGame dir game                     = movePlayerGame dir game
-  | hasEndGame dir game && hasNextLevel game = nextLevel game
-  | hasEndGame dir game                      = game
-  | otherwise = game
+  | hasActionInDirGame dir game              = Playing $ togglePanelModeOn game (getActionFromDirectionGame dir game)
+  | canMoveGame dir game                     = Playing $ movePlayerGame dir game
+  | hasEndGame dir game && hasNextLevel game = Playing $ nextLevel game
+  | hasEndGame dir game                      = Won
+  | otherwise = Playing game
 
 main :: IO ()
-main = play window backgroundColor fps initGame renderGame handleInput step
+main = play window backgroundColor fps initEngine renderEngine handleEngineInput step
 
 
 

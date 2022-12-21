@@ -2,11 +2,11 @@ module GameModule where
 
 import TypeModule
 import LevelModule (movePlayer, canMove, decreaseHp, hasActionInDir, getActionFromDirection, removeItemFromLevel, wall, removeEntityFromLevel, hasEndInDir)
-import PlayerModule (replaceAtIndex, searchInInventory, inventoryFull, inventoryContains, leave, useItem, increasePlayerHp, searchItem, addToInventory, searchEntity, decreasePlayerHp, useItemId)
+import PlayerModule (replaceAtIndex, searchInInventory, inventoryFull, inventoryContains, leave, useItem, increasePlayerHp, searchItem, addToInventory, searchEntity, decreasePlayerHp, useItemId, isDead)
 import GHC.Integer (integerToInt)
 import Debug.Trace (trace)
 import Data.Maybe (fromJust)
-import Data.Functor.Contravariant (Op(Op))
+import ParserModule (parseGameFile)
 
 
 onLevels :: ([Level] -> [Level]) -> Game -> Game
@@ -137,20 +137,29 @@ leaveGame :: Game -> Game
 leaveGame = id
 
 useItemGame :: Id -> Entity -> Game -> Game
-useItemGame itemId entity = onCurrentLevel (removeEntityFromLevel entity) . onPlayer (useItemId itemId)
+useItemGame itemId entity = onCurrentLevel (removeEntityFromLevel entity) 
+                          . onPlayer (useItemId itemId)
 
 increasePlayerHpGame :: Id -> Game -> Game
 increasePlayerHpGame healingItemId = onPlayer (increasePlayerHp healingItemId)
 
 retrieveItemGame :: Item -> Game -> Game
-retrieveItemGame item = onCurrentLevel (removeItemFromLevel item) . onPlayer (addToInventory item)
+retrieveItemGame item = onCurrentLevel (removeItemFromLevel item) 
+                      . onPlayer (addToInventory item)
 
 decreaseHpGame :: Item -> Entity -> Game -> Game
-decreaseHpGame weapon enemy = onPlayer (decreasePlayerHp enemy) . onCurrentLevel (decreaseHp weapon enemy)
+decreaseHpGame weapon enemy = restartIfDead
+                            . onPlayer (decreasePlayerHp enemy) 
+                            . onCurrentLevel (decreaseHp weapon enemy)
 
 -- -------------------------------------------------
 --                  Hulpfuncties
 -- -------------------------------------------------
+
+restartIfDead :: Game -> Game
+restartIfDead game
+  | isDead (player game) = parseGameFile "levels/level4.txt"
+  | otherwise            = game
 
 getPlayerweapon :: Id -> Game -> Item
 getPlayerweapon id = searchInInventory id . player 

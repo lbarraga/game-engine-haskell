@@ -6,8 +6,12 @@ import System.Exit (exitFailure)
 import GHC.IO (unsafePerformIO)
 import TypeModule
 
-parseGameFile :: String -> Either ParseError Game
-parseGameFile = unsafePerformIO . parseFromFile pGame
+parseGameFileEither :: Either ParseError Game -> Game
+parseGameFileEither (Right g) = g
+parseGameFileEither (Left err) = error (show err)
+
+parseGameFile :: String -> Game
+parseGameFile = parseGameFileEither . unsafePerformIO . parseFromFile pGame
 
 pItemList :: CharParser () [Item]
 pItemList = pListOf $ between (char '{' <* spaces) (char '}') pItem 

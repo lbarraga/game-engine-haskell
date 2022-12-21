@@ -63,6 +63,9 @@ decreasePlayerHp :: Entity -> Player -> Player
 decreasePlayerHp entity = onPlayerHp (subtract entityDamage)
     where entityDamage = fromJust $ entityValue entity
 
+isDead :: Player -> Bool
+isDead = (<= 0) . hp
+
 -- --------------------------------------------------------------
 --
 -- --------------------------------------------------------------
