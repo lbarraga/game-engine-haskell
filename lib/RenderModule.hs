@@ -2,6 +2,7 @@ module RenderModule where
 
 import TypeModule
 import LevelModule
+import RenderConstants
 
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss
@@ -16,84 +17,26 @@ import EngineModule (EngineState (Playing, Won, LevelChooser), chooseLevelFile)
 import LevelChooserModule (LevelSelector (levelFiles, levelSelectorPos, LevelSelector), initLevelSelectorIO, moveLevelSelector)
 import Data.Map (Map, fromList, (!), member)
 import TypeModule (GameObject(getDescription), Entity (entityHp, entityValue))
-import GHC.Base (undefined)
-
--- Framerate van het spel.
-fps :: Int
-fps = 60
-
---Initiele positie van het Gloss venster.
-windowPosition :: (Int, Int)
-windowPosition = (200, 80)
-
--- pxlWidth:  De breedte van het spel in pixels.
--- pxlHeight: De hoogte van het spel in pixels.
-pxlWidth, pxlHeight :: Int
-pxlWidth = 900
-pxlHeight = 750
-
--- Het Gloss venster
-window :: Display
-window = InWindow "RPG engine" (pxlWidth, pxlHeight) windowPosition
-
--- Achtergrond kleur van het gloss venster
-backgroundColor :: Color
-backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
-
-initEngineIO :: IO EngineState
-initEngineIO = LevelChooser <$> initLevelSelectorIO
-
-assetFolder :: String
-assetFolder = "assets/fantasy"
-
-itemHolderInset, itemHolderSize, itemHolderSpace, inventoryWidth, inventoryHeight :: Float
-inventoryWidth = 700
-inventoryHeight = itemHolderSize + 2 * itemHolderInset
-itemHolderInset = 7
-itemHolderSize = 70
-itemHolderSpace = itemHolderSize + itemHolderInset
-
-inventoryBackGroundColor :: Color
-inventoryBackGroundColor = makeColorI 139 69 19 255
-
-levelContainerColor :: Color
-levelContainerColor = red
-
-itemHolderColor :: Color
-itemHolderColor = makeColorI 72 36 10 255
-
-actionPanelEmptyColor :: Color
-actionPanelEmptyColor = itemHolderColor
-
-inventoryBackground :: Picture
-inventoryBackground = Color inventoryBackGroundColor $ rectangleSolid inventoryWidth inventoryHeight
-
-itemHolder :: Picture
-itemHolder = Color itemHolderColor $ rectangleSolid itemHolderSize itemHolderSize
-
-actionPanelEmpty :: Picture
-actionPanelEmpty = Color actionPanelEmptyColor $ rectangleSolid 300 350
-
-selectorLine :: Picture 
-selectorLine = Color white $ rectangleSolid 250 1
-
-lvlContWidth, lvlContHeight :: Float
-lvlContWidth  = 500
-lvlContHeight = 500
-
-levelContainerEmpty :: Picture
-levelContainerEmpty = Color levelContainerColor $ rectangleWire lvlContWidth lvlContHeight
+import GHC.Base (undefined, Float)
+import Graphics.Gloss (scale)
+import RenderConstants (winText, itemHolderSize, itemHolder)
 
 winScreen :: Picture 
-winScreen = pictures [win, info]
-    where win = (translate (-110) 0 . scale 5 5 . renderText) "You win!"
-          info = (translate (-270) (-100) . scale 2 2 . renderText) "Druk op SPATIE om een nieuw level te kiezen."
+winScreen = pictures [winTextPic, winInfoTextPic]
 
--- ----------------------------------------------------------------------------
+winTextPic :: Picture
+winTextPic = (translate winTextXOffset winTextYOffset . scale winTextScale winTextScale . renderText) winText
+
+winInfoTextPic :: Picture
+winInfoTextPic = (translate winHulpXOffset winHulpYOffset . scale winHelpScale winHelpScale . renderText) winHelp
+
+
+
+-- ------------------------------------------------------------------------------
 --
--- ----------------------------------------------------------------------------
-
--- Ga van een filename naar de picture van die file
+-- Hier wijn een aantal functies gedefinieerd die het renderen makkelijker maken.
+-- Constanten zijn te vinden in "lib/RenderConstants.hs"
+-- ------------------------------------------------------------------------------
 
 loadAssets :: IO (Map String Picture)
 loadAssets = do
@@ -102,6 +45,7 @@ loadAssets = do
     let names = map baseName fileNames
     return $ fromList (zip names pictures)
 
+-- Ga van een filename naar de picture van die file
 png :: String -> IO Picture
 png = fmap checkImage . loadJuicyPNG
 
@@ -112,17 +56,11 @@ checkImage Nothing    = error "Could not load asset."
 baseName :: String -> String
 baseName = takeWhile (/= '.')
 
---itemToPath :: Item -> String
---itemToPath item = assetFolder ++ "/" ++ itemName item ++ ".png"
-
---entityToPath :: Entity -> String
---entityToPath entity = assetFolder ++ "/" ++ entityName entity ++ ".png"
-
 objectToPic :: GameObject a => AssetMap -> a -> Picture
 objectToPic assetMap = (assetMap !) . getName
 
 co2Gloss :: Int -> Int -> (Float, Float)
-co2Gloss x y = (fromIntegral (x * 32), fromIntegral (y * 32))
+co2Gloss x y = (fromIntegral x * assetSize, fromIntegral y * assetSize)
 
 translateToGloss :: Int -> Int -> Picture -> Picture
 translateToGloss x y = uncurry translate (co2Gloss x y) 
@@ -148,34 +86,37 @@ isKey :: SpecialKey -> Event -> Bool
 isKey k1 (EventKey (SpecialKey k2) Down _ _) = k1 == k2
 isKey _  _                                   = False
 
-(!!!) :: AssetMap -> String -> Picture
-(!!!) assetMap key
-  | key `member` assetMap = assetMap ! key
-  | otherwise = error $ "Key '" ++ key ++ "' is niet gevonden!"
-
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
 renderTile :: AssetMap -> Char -> Picture
-renderTile am '.' = am !!! "floor"
-renderTile am '*' = am !!! "wall"
-renderTile am 's' = pictures [am !!! "floor", am !!! "player"]
-renderTile am 'e' = pictures [am !!! "floor", am !!! "end"] 
+renderTile am '.' = am ! emptyName
+renderTile am '*' = am ! wallName
+renderTile am 's' = pictures [am ! emptyName, am ! playerName]
+renderTile am 'e' = pictures [am ! emptyName, am ! endName] 
 renderTile _  _ = error "no tile"
 
 renderLevel :: AssetMap -> Level -> Picture
-renderLevel assetMap level = pictures [translate levelDx levelDy scaledLevel , levelContainerEmpty]
-    where (levelDx, levelDy) = (-(16 * (lWidth - 1) * scaleSize), -(16 * (lHeight - 1) * scaleSize))
-          scaledLevel = scale scaleSize scaleSize levelPic  
-          levelPic = pictures [renderLayout assetMap (layout level), renderObjects assetMap (items level), renderObjects assetMap (entities level)]
-          scaleSize = min (lvlContHeight / (32 * lHeight)) (lvlContWidth / ( 32 * lWidth))
+renderLevel assetMap level = pictures [layoutPic, itemsPic, entitiesPic]
+    where layoutPic   = renderLayout  assetMap (layout level)
+          itemsPic    = renderObjects assetMap (items level)
+          entitiesPic = renderObjects assetMap (entities level)
+
+renderLevelScaled :: AssetMap -> Level -> Picture
+renderLevelScaled assetMap level = containWithin lvlContWidth lvlContHeight lWidth lHeight levelPic 
+    where levelPic = renderLevel assetMap level 
           (lWidth, lHeight) = (getLevelWidth level, getLevelHeight level)
 
+containWithin :: Float -> Float -> Float -> Float -> Picture -> Picture
+containWithin containerWidth containerHeight picWidth picHeight pic = translate dx dy scaledPic
+    where (dx, dy) = (calcDelta picWidth, calcDelta picHeight) 
+          calcDelta side = -((assetSize / 2) * (side - 1) * scaleSize)
+          scaledPic = scale scaleSize scaleSize pic
+          scaleSize = min (containerHeight / (assetSize * picHeight)) (containerWidth / ( assetSize * picWidth))
+
 renderWithCo :: Int -> Int -> Picture -> Picture
-renderWithCo x y = translate dx dy
-    where dx = 32 * fromIntegral x
-          dy = 32 * fromIntegral y
+renderWithCo x y = uncurry translate (co2Gloss x y)
 
 renderLayout :: AssetMap -> Layout -> Picture
 renderLayout assetMap = pictures . render2dWithCoords
@@ -185,23 +126,7 @@ renderLayout assetMap = pictures . render2dWithCoords
 
 renderObjects :: GameObject a => AssetMap -> [a] -> Picture
 renderObjects assetMap = pictures . map renderObject 
-    where renderObject obj = renderWithCo (getX obj) (getY obj) (assetMap !!! getName obj)
-
---renderItem :: Item -> Picture
---renderItem = png . itemToPath
-
--- renderEntities :: GameObject a => (a -> Picture) -> [Entity] -> Picture
--- renderEntities getAsset = pictures . map (renderWithCo getAsset)
-
-renderEntity :: AssetMap -> Entity -> Picture
-renderEntity assetMap entity = pictures [entityPic, entityHpPic]
-    where entityPic = assetMap !!! getName entity
-          entityHpPic = (translate 0 20 . maybe blank renderHp . entityHp) entity
-
-renderHp ::  Int -> Picture
-renderHp eHp = pictures [hpContainer, hpText]
-    where hpContainer = color black $ rectangleSolid 10 10
-          hpText      = (translate (-4) (-2) . scale 0.5 0.5 . color white . renderText . show) eHp
+    where renderObject obj = renderWithCo (getX obj) (getY obj) (assetMap ! getName obj)
 
 renderInventoryItems :: AssetMap -> [Item] -> Picture
 renderInventoryItems assetMap items = pictures spacedOutItemHolders 
@@ -211,18 +136,19 @@ renderInventoryItems assetMap items = pictures spacedOutItemHolders
 renderInventoryItem :: AssetMap -> Maybe Item -> Picture
 renderInventoryItem _         Nothing     = itemHolder 
 renderInventoryItem assetMap (Just item)  = pictures [itemHolder, resizedItem, itemValuePic]
-    where resizedItem = scale 2.1875 2.1875 (assetMap !!! getName item) -- 70 / 32
-          itemValuePic = (translate (-32) 20 . color white . renderText . show . itemValue) item
+    where resizedItem = scale itemScale itemScale (assetMap ! getName item)
+          itemScale = itemHolderSize / assetSize
+          itemValuePic = (translate (-assetSize) itemValueYOffset . color white . renderText . show . itemValue) item
 
 renderInventory :: AssetMap -> [Item] -> Picture
 renderInventory assetMap items = pictures [inventoryBackground, inventoryItems] 
     where inventoryItems = translate (-itemHolderSpace * 4) 0 (renderInventoryItems assetMap items)
 
 renderText :: String -> Picture
-renderText = scale 0.1 0.1 . text
+renderText = scale textScale textScale . text
 
 limitTextWidth :: String -> Picture
-limitTextWidth = pictures . translateCumulative 0 (-15) . map renderText . map unwords . devideTextWidth 6 . words
+limitTextWidth = pictures . translateCumulative 0 (-spaceBetweenLimitText) . map renderText . map unwords . devideTextWidth 6 . words
 
 devideTextWidth :: Int -> [String] -> [[String]]
 devideTextWidth _ [] = []
@@ -234,44 +160,53 @@ renderAction act = color white $ renderText (functionDescription functionName fu
           functionArgs = arguments (action act)
 
 renderActions :: [ConditionalAction] -> Picture
-renderActions = pictures . translateCumulative 0 (-50) . map renderAction 
+renderActions = pictures . translateCumulative 0 (-spaceBetweenActionTexts) . map renderAction 
 
 renderActionPanel :: PanelMode -> Picture
 renderActionPanel (PanelMode Off _ _ _ ) = blank
 renderActionPanel (PanelMode On selectorPos actions mEntity) = pictures [actionPanel, actionPics, selector, info]
-    where actionPics = translate (-130) 150 $ renderActions actions
-          selector = renderSelectorLine selectorPos 250 50 white 
-          actionPanel = translate 0 20 $ actionPanelEmpty
-          info = translate (-140) (-210) $ maybe blank renderEntityInfo mEntity
+    where actionPics = translate actionsPicsXOffset actionsPicsYOffset $ renderActions actions
+          selector = renderSelectorLine selectorPos actionSelectorWidth actionSelectorYOffset actionSelectorColor
+          actionPanel = translate actionsPanelXOffset actionsPanelYOffset $ actionPanelEmpty
+          info = translate actionsInfoXOffset actionsInfoYOffset $ maybe blank renderEntityInfo mEntity
 
 renderEntityInfo :: Entity -> Picture
 renderEntityInfo entity = pictures [infoContainer, entityDescriptie, entityHealth, entityStrength]
     where entityDescriptie = (color white . limitTextWidth . getDescription) entity
           entityHealth = maybe blank renderHpText (entityHp entity)
           entityStrength = maybe blank renderStrength (entityValue entity)
-          renderHpText = translate 0 20 . scale 1.5 1.5 . color white . renderText . ("hp: " ++) . show
-          renderStrength = translate 100 20 . scale 1.5 1.5 . color white . renderText . ("Strength: " ++) . show
-          infoContainer = translate 140 (-5)(color actionPanelEmptyColor $ rectangleSolid 300 100)
+          infoContainer = translate infoContainerXOffset infoContainerYOffset infoContainerEmpty 
+
+renderAttributeText :: String -> Int -> Picture
+renderAttributeText prefix = scale entityInfoScale entityInfoScale . color white . renderText . (prefix ++) . show
+
+renderHpText :: Int -> Picture
+renderHpText = translate hpInfoXOffset hpInfoYOffset . renderAttributeText hpPrefix
+
+renderStrength :: Int -> Picture
+renderStrength = translate strengthInfoXOffset strengthInfoYOffset . renderAttributeText strengthPrefix
 
 renderSelectorLine :: Int -> Float -> Float -> Color -> Picture
-renderSelectorLine pos width hInset col = translate (-5) (fromIntegral (-pos + 3) * hInset - 2) selectorLine
+renderSelectorLine pos width hInset col = translate (-spaceBetweenSelectorLine) (fromIntegral (-pos + 3) * hInset - 2) selectorLine
     where selectorLine = Color col $ rectangleSolid width 1 
 
 renderPlayerHp :: Int -> Picture
-renderPlayerHp = scale 4 4 . renderText . ("hp: " ++)  . show
+renderPlayerHp = scale playerHpScale playerHpScale . renderText . (hpPrefix ++)  . show
 
 renderGame :: AssetMap -> Game -> Picture
 renderGame getAsset g = pictures [actionPanel, inv, lvl, playerHp]
-    where inv = (translate 0 (-300) . renderInventory getAsset . inventory . player) g
-          lvl = (translate 190 50 . renderLevel getAsset . head . levels) g
-          actionPanel = translate (-250) 50 $ renderActionPanel (panelMode g)
-          playerHp = translate (-400) 280 $ renderPlayerHp ((hp . player) g)
+    where inv = (translate inventoryXOffset inventoryYOffset . renderInventory getAsset . inventory . player) g
+          lvl = (translate lvlXOffset lvlYOffset . renderLevelScaled getAsset . head . levels) g
+          actionPanel = translate actionsXOffset actionsYOffset $ renderActionPanel (panelMode g)
+          playerHp = translate playerHpXOffset playerHpYOffset  $ renderPlayerHp ((hp . player) g)
 
 renderLevelChooser :: LevelSelector -> Picture
-renderLevelChooser ls = scale 2 2 $ pictures [selector, fileNames, helpText]
-    where selector = renderSelectorLine (levelSelectorPos ls) 50 25 black
-          fileNames = (translate (-30) 75 . pictures . translateCumulative 0 (-25) . map renderText . levelFiles) ls
-          helpText = (translate (-140) 120 . scale 3 3 . renderText) "Kies een level."
+renderLevelChooser ls = scale levelChooserScale levelChooserScale $ pictures [selector, fileNames, helpText]
+    where selector  = renderSelectorLine (levelSelectorPos ls) filenameSelectorWidth spaceBetweenFilenames black
+          fileNames = (translate filenamesXOffset filenamesYOffset . pictures 
+                    . translateCumulative 0 (-spaceBetweenFilenames) . map renderText . levelFiles) ls
+          helpText  = (translate selectorHelpTextXOffset selectorHelpTextYOffset 
+                    . scale helpTextScale  helpTextScale . renderText) selectorHelpText
 
 renderEngine :: AssetMap -> EngineState -> Picture
 renderEngine assetMap (Playing game)     = renderGame assetMap game

@@ -7,7 +7,7 @@ build-type:     Simple
 library
   hs-source-dirs: lib
   build-depends: base >= 4.7 && <5, parsec >= 3.1.15.1, gloss >= 1.11 && < 1.14, gloss-juicy >= 0.2.3, directory >= 1.3.6.2, containers
-  exposed-modules: ParserModule, TypeModule, PlayerModule, LevelModule, RenderModule, GameModule, EngineModule, LevelChooserModule
+  exposed-modules: ParserModule, TypeModule, PlayerModule, LevelModule, RenderModule, GameModule, EngineModule, LevelChooserModule, RenderConstants
 
 executable rpg-engine
   main-is: Main.hs
