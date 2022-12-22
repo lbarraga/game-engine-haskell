@@ -265,8 +265,8 @@ handleDirectionInput dir game
 
 type AssetMap = Map String Picture
 
-main :: IO ()
-main = do 
+start :: IO ()
+start = do 
     initEngine <- initEngineIO
     initLevelSelector <- initLevelSelectorIO
     assetMap <- loadAssets

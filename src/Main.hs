@@ -1,7 +1,8 @@
 import ParserModule (parseGameFile)
 import TypeModule
+import RenderModule
 
 main :: IO ()
-main = putStrLn "hoi"
+main = start
 
 
