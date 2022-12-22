@@ -98,6 +98,10 @@ data Level = Level {
     entities :: [Entity]
 } deriving (Eq, Show) 
 
+
+defaultPanel :: PanelMode
+defaultPanel = PanelMode Off 0 [] Nothing 
+
 data PanelStatus = On | Off deriving (Eq, Show)
 data PanelMode = PanelMode{
     status :: PanelStatus,
@@ -109,7 +113,8 @@ data PanelMode = PanelMode{
 -- | Een Game heeft een speler en een lijst van levels.
 data Game = Game{
     player :: Player, 
-    levels :: [Level], 
+    levels :: [Level],
+    backup :: Maybe (Player, [Level]), 
     panelMode :: PanelMode
 } deriving (Eq, Show)
 

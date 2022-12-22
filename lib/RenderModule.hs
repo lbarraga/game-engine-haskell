@@ -15,6 +15,8 @@ import Debug.Trace (trace)
 import EngineModule (EngineState (Playing, Won, LevelChooser), chooseLevelFile)
 import LevelChooserModule (LevelSelector (levelFiles, levelSelectorPos, LevelSelector), initLevelSelectorIO, moveLevelSelector)
 import Data.Map (Map, fromList, (!), member)
+import TypeModule (GameObject(getDescription), Entity (entityHp, entityValue))
+import GHC.Base (undefined)
 
 -- Framerate van het spel.
 fps :: Int
@@ -70,7 +72,7 @@ itemHolder :: Picture
 itemHolder = Color itemHolderColor $ rectangleSolid itemHolderSize itemHolderSize
 
 actionPanelEmpty :: Picture
-actionPanelEmpty = Color actionPanelEmptyColor $ rectangleSolid 300 400
+actionPanelEmpty = Color actionPanelEmptyColor $ rectangleSolid 300 350
 
 selectorLine :: Picture 
 selectorLine = Color white $ rectangleSolid 250 1
@@ -219,6 +221,12 @@ renderInventory assetMap items = pictures [inventoryBackground, inventoryItems]
 renderText :: String -> Picture
 renderText = scale 0.1 0.1 . text
 
+limitTextWidth :: String -> Picture
+limitTextWidth = pictures . translateCumulative 0 (-15) . map renderText . map unwords . devideTextWidth 6 . words
+
+devideTextWidth :: Int -> [String] -> [[String]]
+devideTextWidth _ [] = []
+devideTextWidth width textWords = (take width textWords) : devideTextWidth width (drop width textWords)
 
 renderAction :: ConditionalAction -> Picture
 renderAction act = color white $ renderText (functionDescription functionName functionArgs)
@@ -230,9 +238,20 @@ renderActions = pictures . translateCumulative 0 (-50) . map renderAction
 
 renderActionPanel :: PanelMode -> Picture
 renderActionPanel (PanelMode Off _ _ _ ) = blank
-renderActionPanel (PanelMode On selectorPos actions _) = pictures [actionPanelEmpty, actionPics, selector]
+renderActionPanel (PanelMode On selectorPos actions mEntity) = pictures [actionPanel, actionPics, selector, info]
     where actionPics = translate (-130) 150 $ renderActions actions
           selector = renderSelectorLine selectorPos 250 50 white 
+          actionPanel = translate 0 20 $ actionPanelEmpty
+          info = translate (-140) (-210) $ maybe blank renderEntityInfo mEntity
+
+renderEntityInfo :: Entity -> Picture
+renderEntityInfo entity = pictures [infoContainer, entityDescriptie, entityHealth, entityStrength]
+    where entityDescriptie = (color white . limitTextWidth . getDescription) entity
+          entityHealth = maybe blank renderHpText (entityHp entity)
+          entityStrength = maybe blank renderStrength (entityValue entity)
+          renderHpText = translate 0 20 . scale 1.5 1.5 . color white . renderText . ("hp: " ++) . show
+          renderStrength = translate 100 20 . scale 1.5 1.5 . color white . renderText . ("Strength: " ++) . show
+          infoContainer = translate 140 (-5)(color actionPanelEmptyColor $ rectangleSolid 300 100)
 
 renderSelectorLine :: Int -> Float -> Float -> Color -> Picture
 renderSelectorLine pos width hInset col = translate (-5) (fromIntegral (-pos + 3) * hInset - 2) selectorLine
@@ -260,12 +279,12 @@ renderEngine _        Won                = winScreen
 renderEngine _        (LevelChooser sel) = renderLevelChooser sel
 
 -- stap in de game
-step :: Float -> EngineState -> EngineState
-step _ engine = engine
+step :: Float -> EngineState -> IO EngineState
+step _ = return
 
-handleEngineInput :: LevelSelector -> Event -> EngineState ->  EngineState
-handleEngineInput _  ev (Playing game)     = handleGameInput ev game
-handleEngineInput ls ev Won                = handleWinScreenInput ev ls
+handleEngineInput :: LevelSelector -> Event -> EngineState -> IO EngineState
+handleEngineInput _  ev (Playing game)     = return $ handleGameInput ev game
+handleEngineInput ls ev Won                = return $ handleWinScreenInput ev ls
 handleEngineInput _  ev (LevelChooser sel) = handleLevelChooserInput ev sel
 
 handleWinScreenInput :: Event -> LevelSelector -> EngineState
@@ -273,12 +292,12 @@ handleWinScreenInput ev initLevelSelector
   | isKey KeySpace ev  = LevelChooser initLevelSelector
 handleWinScreenInput _ _ = Won
 
-handleLevelChooserInput :: Event -> LevelSelector -> EngineState
+handleLevelChooserInput :: Event -> LevelSelector -> IO EngineState
 handleLevelChooserInput ev
-  | isKey KeyUp    ev = LevelChooser . moveLevelSelector U
-  | isKey KeyDown  ev = LevelChooser . moveLevelSelector D
-  | isKey KeySpace ev = Playing      . chooseLevelFile 
-handleLevelChooserInput _ = LevelChooser
+  | isKey KeyUp    ev = return . LevelChooser . moveLevelSelector U
+  | isKey KeyDown  ev = return . LevelChooser . moveLevelSelector D
+  | isKey KeySpace ev = fmap Playing . chooseLevelFile 
+handleLevelChooserInput _ = return . LevelChooser
 
 handleGameInput :: Event -> Game -> EngineState
 handleGameInput ev game 
@@ -298,7 +317,7 @@ handleActionPanelInput :: Event -> Game -> Game
 handleActionPanelInput ev 
   | isKey KeyDown  ev = moveSelector D 
   | isKey KeyUp    ev = moveSelector U 
-  | isKey KeySpace ev = (togglePanelModeOff . selectAction)
+  | isKey KeySpace ev = togglePanelModeOff . selectAction
 handleActionPanelInput _ = id 
 
 handleDirectionInput :: Dir -> Game -> EngineState
@@ -316,7 +335,7 @@ main = do
     initEngine <- initEngineIO
     initLevelSelector <- initLevelSelectorIO
     assetMap <- loadAssets
-    play window backgroundColor fps initEngine (renderEngine assetMap) (handleEngineInput initLevelSelector) step
+    playIO window backgroundColor fps initEngine (return . (renderEngine assetMap)) (handleEngineInput initLevelSelector) step
 
 
 

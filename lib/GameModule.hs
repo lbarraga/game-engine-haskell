@@ -19,6 +19,13 @@ onPlayer f g = g{player = f (player g)}
 onCurrentLevel :: (Level -> Level) -> Game -> Game
 onCurrentLevel f = onLevels (\levels -> replaceAtIndex 0 (f (head levels)) levels)
 
+setBackup :: Game -> Game
+setBackup g@Game{levels = levels, player = player} = g{backup = Just (player, levels)}
+
+restoreFromBackup :: Game -> Game
+restoreFromBackup Game{backup = b@(Just (p, lvls))} = Game{player = p, levels = lvls, panelMode = defaultPanel, backup = b}
+restoreFromBackup _ = error "Er is geen backup van de game genomen."
+
  -- ----------------------------------------------------
  --  Een aantal semantische functies in een game
  -- ----------------------------------------------------
@@ -158,9 +165,9 @@ decreaseHpGame weapon enemy = restartIfDead
 -- -------------------------------------------------
 
 restartIfDead :: Game -> Game
-restartIfDead = id
-  -- | isDead (player game) = parseGameFile "levels/level4.txt"
-  -- | otherwise            = game
+restartIfDead game
+ | isDead (player game) = restoreFromBackup game
+ | otherwise            = game
 
 getPlayerweapon :: Id -> Game -> Item
 getPlayerweapon id = searchInInventory id . player 

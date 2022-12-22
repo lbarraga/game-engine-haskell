@@ -16,7 +16,6 @@ listDirectoryLevels = (sort <$>) . (filter (endsWith ".txt") <$>) . listDirector
 endsWith :: String -> String -> Bool
 endsWith with = (==with) . reverse . take (length with) . reverse
 
-
 initLevelSelectorIO :: IO LevelSelector
 initLevelSelectorIO = do
     lvlString <- listDirectoryLevels "levels"

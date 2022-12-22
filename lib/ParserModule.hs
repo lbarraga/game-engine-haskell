@@ -4,14 +4,13 @@ import Numeric (readFloat, readHex, readSigned)
 import Text.ParserCombinators.Parsec
 import System.Exit (exitFailure)
 import TypeModule
-import GHC.IO (unsafePerformIO)
 
 parseGameFileEither :: Either ParseError Game -> Game
 parseGameFileEither (Right g) = g
 parseGameFileEither (Left err) = error (show err)
 
-parseGameFile :: String -> Game
-parseGameFile = parseGameFileEither . unsafePerformIO . parseFromFile pGame
+parseGameFile :: String -> IO Game
+parseGameFile = fmap parseGameFileEither . parseFromFile pGame
 
 pItemList :: CharParser () [Item]
 pItemList = pListOf $ between (char '{' <* spaces) (char '}') pItem 
@@ -50,7 +49,8 @@ pListElement valueParser = spaces *> valueParser <* (string ",\n" <|> string "\n
 -- | Deze parser zal worden opgeroepen op het bestand.
 pGame :: CharParser () Game
 pGame = Game <$> (spaces  *> pPlayer) <*> (spaces  *> pLevels) 
-             <*> (PanelMode Off 0 [] Nothing  <$ string "") -- kleine hack
+             <*> (Nothing <$ string "") -- Backup wordt later gezet.
+             <*> (defaultPanel  <$ string "") -- kleine hack
 
 
 -- | Parsen van meerdere levels
