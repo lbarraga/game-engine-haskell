@@ -1,8 +1,6 @@
 module ParserModule where 
 
-import Numeric (readFloat, readHex, readSigned)
 import Text.ParserCombinators.Parsec
-import System.Exit (exitFailure)
 import TypeModule
 
 parseGameFileEither :: Either ParseError Game -> Game

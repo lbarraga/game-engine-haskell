@@ -121,6 +121,25 @@ levels: [
         ],
 
         entities: [
+                    {
+                id: "luigi",
+                x: 15,
+                y: 7,
+                name: "Ijsdraak",
+                description: "Broer van mario.",
+                hp: 200,
+                value: 20,
+
+                actions: {
+                    [inventoryContains(potion1)] increasePlayerHp(potion1),
+                    [inventoryContains(potion2)] increasePlayerHp(potion2),
+                    [inventoryContains(potion3)] increasePlayerHp(potion3),
+                    [inventoryContains(potion4)] increasePlayerHp(potion4),
+                    [inventoryContains(sword)] decreaseHp(luigi, sword),
+                    [] decreaseHp(luigi, dagger),
+                    [] leave()
+                }
+            },
             {
                 id: "devil1",
                 x: 6,

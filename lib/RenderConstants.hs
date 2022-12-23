@@ -1,15 +1,8 @@
 module RenderConstants where
 
-import EngineModule
-import LevelChooserModule
-
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss
 import Graphics.Gloss.Juicy
-import GHC.Base (Float)
-import GHC.Base (undefined, Float)
-import Graphics.Gloss (Picture (Color))
-
 
 -- Framerate van het spel.
 fps :: Int
@@ -36,11 +29,8 @@ window = InWindow "RPG engine" (pxlWidth, pxlHeight) windowPosition
 backgroundColor :: Color
 backgroundColor = makeColorI 216 181 137 255  -- 93 74 68 255
 
-initEngineIO :: IO EngineState
-initEngineIO = LevelChooser <$> initLevelSelectorIO
-
 assetFolder :: String
-assetFolder = "assets/fantasy"
+assetFolder = "assets/fantasy/"
 
 itemHolderInset, itemHolderSize, itemHolderSpace, inventoryWidth, inventoryHeight :: Float
 inventoryWidth = 700
@@ -51,9 +41,6 @@ itemHolderSpace = itemHolderSize + itemHolderInset
 
 inventoryBackGroundColor :: Color
 inventoryBackGroundColor = makeColorI 139 69 19 255
-
-levelContainerColor :: Color
-levelContainerColor = red
 
 itemHolderColor :: Color
 itemHolderColor = makeColorI 72 36 10 255
@@ -83,9 +70,6 @@ infoContainerHeight = 100
 
 infoContainerEmpty :: Picture
 infoContainerEmpty = color actionPanelEmptyColor $ rectangleSolid infoContainerWidth infoContainerHeight
-
-levelContainerEmpty :: Picture
-levelContainerEmpty = Color levelContainerColor $ rectangleWire lvlContWidth lvlContHeight
 
 emptyName, wallName, playerName, endName :: String
 emptyName = "floor"

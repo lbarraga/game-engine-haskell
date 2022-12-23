@@ -1,19 +1,8 @@
 module LevelModule where
 
 import TypeModule
-import PlayerModule -- TODO weg
 import Data.Maybe (listToMaybe, fromJust)
 import Data.List (elemIndices)
-
--- -------------------------------------------------
--- Een aantal constaten
--- -------------------------------------------------
-
-wall, empty, speler, end :: Char
-wall   = '*'
-empty  = '.'
-speler = 's'
-end    = 'e'
 
 -- -------------------------------------------------
 -- Methodes met betrekking tot het bewegen van de 

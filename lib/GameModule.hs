@@ -1,12 +1,9 @@
 module GameModule where
 
 import TypeModule
-import LevelModule (movePlayer, canMove, decreaseHp, hasActionInDir, getActionFromDirection, removeItemFromLevel, wall, removeEntityFromLevel, hasEndInDir)
-import PlayerModule (replaceAtIndex, searchInInventory, inventoryFull, inventoryContains, leave, useItem, increasePlayerHp, searchItem, addToInventory, searchEntity, decreasePlayerHp, useItemId, isDead)
-import GHC.Integer (integerToInt)
-import Debug.Trace (trace)
-import Data.Maybe (fromJust)
-import ParserModule (parseGameFile)
+import PlayerModule
+import LevelModule
+import ActionPanelModule
 import Data.List (nub)
 
 
@@ -19,16 +16,16 @@ onPlayer f g = g{player = f (player g)}
 onCurrentLevel :: (Level -> Level) -> Game -> Game
 onCurrentLevel f = onLevels (\levels -> replaceAtIndex 0 (f (head levels)) levels)
 
+onPanelMode :: (PanelMode -> PanelMode) -> Game -> Game
+onPanelMode f g = g{panelMode = f (panelMode g)}
+
+-- | Stel het backupVeld van de Game
 setBackup :: Game -> Game
 setBackup g@Game{levels = levels, player = player} = g{backup = Just (player, levels)}
 
-restoreFromBackup :: Game -> Game
-restoreFromBackup Game{backup = b@(Just (p, lvls))} = Game{player = p, levels = lvls, panelMode = defaultPanel, backup = b}
-restoreFromBackup _ = error "Er is geen backup van de game genomen."
-
- -- ----------------------------------------------------
- --  Een aantal semantische functies in een game
- -- ----------------------------------------------------
+-- ----------------------------------------------------
+--  Een aantal semantische functies in een game
+-- ----------------------------------------------------
 
 getCurrentLevel :: Game -> Level
 getCurrentLevel = head . levels
@@ -37,16 +34,27 @@ getCurrentLevel = head . levels
 nextLevel :: Game -> Game
 nextLevel = onLevels tail
 
-hasNextLevel :: Game -> Bool
-hasNextLevel = not . null . tail . levels
 -- | Tussenfunctie: beweeg de speler in een gegeven richting
 movePlayerGame :: Dir -> Game -> Game
 movePlayerGame dir = onCurrentLevel $ movePlayer dir
+
+restoreFromBackup :: Game -> Game
+restoreFromBackup g@Game{backup = (Just (p, lvls))} = g{player = p, levels = lvls}
+restoreFromBackup _ = error "Er is geen backup van de game genomen."
+
+-- --------------------------------------------------------------------
+--                             Predicaten 
+-- --------------------------------------------------------------------
+
+hasNextLevel :: Game -> Bool
+hasNextLevel = not . null . tail . levels
 
 -- | Tussenfunctie: of een speler in een bepaalde richting kan bewegen
 canMoveGame :: Dir -> Game -> Bool
 canMoveGame dir = canMove dir . getCurrentLevel
 
+-- | Tussenfunctie: Geeft aan of het eindpunt zich 
+-- | in een bepaalde richting van de speler bevind of niet
 hasEndGame :: Dir -> Game -> Bool 
 hasEndGame dir = hasEndInDir dir . getCurrentLevel
 
@@ -74,25 +82,16 @@ selectAction g@Game{panelMode = PanelMode _ selPos actionList mEntity} = evalAct
     where actieFunctie = action (actionList !! selPos)
 
 -- | Zet het actie paneel aan met een lijst van acties
-togglePanelModeOn :: Game -> ([ConditionalAction], Maybe Entity) -> Game
-togglePanelModeOn game (actions, mEntity) = game{panelMode = PanelMode On 0 actions mEntity} 
+togglePanelModeOnGame :: ([ConditionalAction], Maybe Entity) -> Game -> Game
+togglePanelModeOnGame (actions, mEntity) = onPanelMode (togglePanelModeOn actions mEntity)
 
 -- | sluit het paneel terug af
-togglePanelModeOff :: Game -> Game
-togglePanelModeOff game = game{panelMode = PanelMode Off 0 [] Nothing} 
-
--- | Pas een functie toe op de selector positie van het actie paneel 
-onSelectorPos :: (Int -> Int) -> Game -> Game
-onSelectorPos f g@Game{panelMode = pm} = g{panelMode = pm{selectorPos = ((`mod` length (panelActions pm)) . f) (selectorPos pm)}}
+togglePanelModeOffGame :: Game -> Game
+togglePanelModeOffGame = onPanelMode togglePanelModeOff 
 
 -- | Move de selector in het actie paneel.
-moveSelector :: Dir -> Game -> Game
-moveSelector U = onSelectorPos (subtract 1)
-moveSelector D = onSelectorPos (+ 1)
-moveSelector _ = error "Cannot move selector left or right"
-
-debug :: a -> String -> a
-debug = flip trace
+moveActionsSelectorGame :: Dir -> Game -> Game
+moveActionsSelectorGame dir = onPanelMode (moveActionSelector dir)
 
 -- -------------------------------------------------
 --
@@ -127,15 +126,6 @@ evalAction "increasePlayerHp" (Ids [id])       _       g = increasePlayerHpGame 
 evalAction "retrieveItem"     (Ids [id])       _       g = retrieveItemGame (getItem id g) g
 evalAction "decreaseHp"       (Ids [id1, id2]) _       g = decreaseHpGame (getPlayerweapon id2 g) (getEntityGame id1 g) g
 evalAction name               _                _       _ = error $ "Action function not supported: " ++ name
-
--- | Een informatieve beschrijving die gebruikt wordt in het actiepaneel.
-functionDescription :: String -> Arguments -> String
-functionDescription "increasePlayerHp" (Ids [id])       = "Increase hp with " ++ id
-functionDescription "leave"            (Ids [])         = "Leave and do Nothing"
-functionDescription "decreaseHp"       (Ids [id1, id2]) = "Decrease hp of " ++ id1 ++ " with " ++ id2
-functionDescription "retrieveItem"     (Ids [id])       = "Retrieve " ++ id
-functionDescription "useItem"          (Ids [id])       = "Use " ++ id
-functionDescription name               _                = error "no description for function " ++ name
 
 -- -------------------------------------------------
 -- Implementaties actiefuncties van de engine.
@@ -173,10 +163,10 @@ getPlayerweapon :: Id -> Game -> Item
 getPlayerweapon id = searchInInventory id . player 
 
 getItem :: Id -> Game -> Item
-getItem id = searchItem id . items . getCurrentLevel
+getItem id = searchObject id . items . getCurrentLevel
 
 getEntityGame :: Id -> Game -> Entity
-getEntityGame id = searchEntity id . entities . getCurrentLevel
+getEntityGame id = searchObject id . entities . getCurrentLevel
 
 getAllObjectNames :: GameObject a => (Level -> [a]) -> Game -> [String]
 getAllObjectNames getObjects = nub . map getName . concatMap getObjects . levels

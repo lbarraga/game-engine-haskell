@@ -1,0 +1,38 @@
+import Test.Hspec
+import Test.Hspec.Parsec
+import Text.Parsec
+import Text.Parsec.String (Parser)
+import ParserModule
+import TypeModule
+import ParserModule (pListOf)
+import ParserModule (pLayout)
+
+main :: IO ()
+main = hspec $ do 
+    it "Can Parse the id key-value pair" $ do
+        parse (pField pString "id") "" "id: \"mijnId\"" `shouldParse` "mijnId"
+
+    it "Can parse a function with id arguments" $ do
+        parse pFunction "" "myfunc(id1, id2, id3)" `shouldParse` (Function "myfunc" (Ids ["id1", "id2", "id3"]))
+
+    it "Can parse a function within a function with id arguments" $ do
+        parse pFunction "" "myOuter(myInner(id1, id2))" `shouldParse` (Function "myOuter" (ArgFunction (Function "myInner" (Ids ["id1", "id2"]))))
+
+    it "Can parse a conditional action" $ do
+        (parse pAction) "" "[inventoryContains(potion)] increasePlayerHp(potion)"  
+        `shouldParse` Action {
+            conditions = [Function {fName = "inventoryContains", arguments = Ids ["potion"]}], 
+            action = Function {fName = "increasePlayerHp", arguments = Ids ["potion"]}
+        }
+
+    it "Can Parse an Int" $ do
+        (parse pNumber) "" "123456789" `shouldParse` 123456789
+
+    it "Can Parse a list" $ do
+        (parse (pListOf pNumber)) "" "[1, 2, 3,   4]" `shouldParse` [1, 2, 3, 4]
+
+    it "Can Parse a layout" $ do 
+        (parse pLayout) "" "\n | * * * *\n | * s e .\n | * * * *\n " `shouldParse` [['*', '*', '*', '*'], ['*', 's', 'e', '.'], ['*', '*', '*', '*']]
+
+    it "Can parse a layout" $ do
+        "Hallo" `shouldBe` "Hallo"

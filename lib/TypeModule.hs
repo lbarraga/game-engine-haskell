@@ -1,5 +1,15 @@
 module TypeModule where
 
+import Data.List (elemIndex)
+import Data.Maybe (fromJust)
+
+data EngineState = LevelChooser LevelSelector | Playing Game | Won deriving (Eq, Show) 
+
+data LevelSelector = LevelSelector{
+    levelFiles :: [String],
+    levelSelectorPos :: Int
+} deriving (Eq, Show)
+
 -- | Om gedupliceerde code te vermijden,
 -- | moeten de gemeenschappelijke attributen van items en entities
 -- | op éénzelfde manier opgevraagd worden
@@ -131,3 +141,21 @@ onEntityHp f e = e{entityHp = f <$> entityHp e}
 onItemUseTimes, onItemValue :: (Int -> Int) -> Item -> Item
 onItemUseTimes f item = item{itemUseTimes = f <$> itemUseTimes item}
 onItemValue    f item = item{itemValue    = f (itemValue item)}
+
+-- --------------------------------------------------------
+-- Constanten en functies die veel modules nodig hebben.
+-- --------------------------------------------------------
+
+wall, empty, speler, end :: Char
+wall   = '*'
+empty  = '.'
+speler = 's'
+end    = 'e'
+
+replaceObjInList :: Eq a => a -> a -> [a] -> [a]
+replaceObjInList from to l = replaceAtIndex index to l
+    where index = fromJust (elemIndex from l)
+
+replaceAtIndex :: Int -> a -> [a] -> [a]
+replaceAtIndex index repl l = before ++ [repl] ++ after
+    where (before, _:after) = splitAt index l

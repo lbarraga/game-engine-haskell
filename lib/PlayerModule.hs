@@ -1,13 +1,8 @@
 module PlayerModule where
 
 import TypeModule
-import Control.Concurrent (waitQSem)
 import Data.List (elemIndex, find)
 import Data.Maybe (fromJust, isJust)
-import Debug.Trace (trace)
-
-main :: IO ()
-main = print "hoi"
 
 -- -------------------------------------------------------------
 -- | In deze sectie staan een aantal constanten gedefinieerd   |
@@ -18,11 +13,10 @@ main = print "hoi"
 maxInventorySize :: Int
 maxInventorySize = 9
 
--- -------------------------------------------------------------
--- | In deze sectie zijn de conditionele functies gedefinieerd |
--- | die de engine ondersteund. Dit zijn predicaten over       |
--- | de staat waarin de speler verkeerd.                       |
--- -------------------------------------------------------------
+-- --------------------------------------------------------------
+-- | En deze sectie zijn semantische functies gedefinieerd met
+-- | betrekking tot de speler.
+-- --------------------------------------------------------------
 
 -- | Of de inventaris van een speler vol is.
 inventoryFull :: Player -> Bool
@@ -32,98 +26,71 @@ inventoryFull = (== maxInventorySize) . length . inventory
 inventoryContains :: Id -> Player -> Bool
 inventoryContains id = isJust . safeSearchInInventory id
 
--- not() is op zich ook een ondersteunde functie maar is
--- al geimplementeerd in de prelude.
+-- | Of de speler dood is
+isDead :: Player -> Bool
+isDead = (<= 0) . hp
 
--- --------------------------------------------------------------
--- | In deze sectie zijn alle acties gedefinieerd die de engine |
--- | ondersteunt. Dit zijn acties die effect hebben op de staat |
--- | van een speler.                                            |
--- --------------------------------------------------------------
-
-debug :: a -> String -> a
-debug = flip trace
-
-leave :: Player -> Player  
-leave = id
-
+-- | Gebruik een item, gegeven zijn id
 useItemId :: Id -> Player -> Player
 useItemId id player = useItem item player
     where item = searchInInventory id player
 
+-- | Gebruik een item. Dit is gewoon zijn useTimes met 1 verminderen
+-- | of verwijderen wanneer deze nog maar 1 useTime heeft
 useItem :: Item -> Player -> Player
 useItem item@Item{itemUseTimes = (Finite 1)} = removeFromInventory item
 useItem item = onPlayerItem (onItemUseTimes (subtract 1)) item 
 
+-- | Gebruik een healItem om de hp van de speler te verhogen
 increasePlayerHp :: Id -> Player -> Player
 increasePlayerHp itemId player = (useItem healItem . onPlayerHp (+ itemValue healItem)) player
     where healItem = searchInInventory itemId player
 
+-- | Neem damage van een entity
 decreasePlayerHp :: Entity -> Player -> Player
 decreasePlayerHp entity = onPlayerHp (subtract entityDamage)
     where entityDamage = fromJust $ entityValue entity
 
-isDead :: Player -> Bool
-isDead = (<= 0) . hp
-
 -- --------------------------------------------------------------
---
+-- Hier zijn een aantal hulpFuncties gedefinieerd.
 -- --------------------------------------------------------------
 
-safeSearchObject :: (a -> Id) -> Id -> [a] -> Maybe a
-safeSearchObject getId id = find ((==id) . getId)
+-- | Zoek een gameObject op in een lijst.
+-- | returns nothing wanneer het object er niet inzit.
+safeSearchObject :: GameObject a => Id -> [a] -> Maybe a
+safeSearchObject id = find ((==id) . getId)
 
-searchObject :: (a -> Id) -> Id -> [a] -> a
-searchObject getId id = fromJust . safeSearchObject getId id
+-- | Zoek een GameObject op in een lijst. Error als die er niet is.
+searchObject :: GameObject a => Id -> [a] -> a
+searchObject id = fromJust . safeSearchObject id
 
-safeSearchItem :: Id -> [Item] -> Maybe Item
-safeSearchItem = safeSearchObject getId
-
-safeSearchEntity :: Id -> [Entity] -> Maybe Entity
-safeSearchEntity = safeSearchObject getId
-
-searchItem :: Id -> [Item] -> Item
-searchItem id = fromJust . safeSearchItem id
-
+-- | zoek GameObject op in de inventaris van de speker 
 safeSearchInInventory :: Id -> Player -> Maybe Item
-safeSearchInInventory id = safeSearchItem id . inventory
+safeSearchInInventory id = safeSearchObject id . inventory
 
+-- | Zoek een GameObject op in de inventaris. Error als die er niet is.
 searchInInventory :: Id -> Player -> Item
 searchInInventory id = fromJust . safeSearchInInventory id
 
-searchEntity :: Id -> [Entity] -> Entity
-searchEntity id = fromJust . safeSearchEntity id
-
-searchItemIndex :: Id -> [Item] -> Int
-searchItemIndex id = fromJust . elemIndex id . map getId
-
+-- | Voeg een item toe aan de inventaris van een speler.
 addToInventory :: Item -> Player -> Player
 addToInventory item = onPlayerInventory (++[item])
 
+-- | Verwijder iets uit de inventaris van de speler
 removeFromInventory :: Item -> Player -> Player
 removeFromInventory item = onPlayerInventory (filter (/= item)) 
 
-replaceInInventory :: Item -> Item -> [Item] -> [Item]
-replaceInInventory = replaceObjInList
-
-replaceObjInList :: Eq a => a -> a -> [a] -> [a]
-replaceObjInList from to l = replaceAtIndex index to l
-    where index = fromJust (elemIndex from l)
-
--- TODO dit moet hier weg
-replaceAtIndex :: Int -> a -> [a] -> [a]
-replaceAtIndex index repl l = before ++ [repl] ++ after
-    where (before, _:after) = splitAt index l
 
 -- -------------------------------------------------------------
---
+-- In deze Sectie zijn hulpFuncties gedefinieerd om code wat 
+-- leesbaarder te maaken.
 -- -------------------------------------------------------------
 
 onPlayerItem :: (Item -> Item) -> Item -> Player -> Player
-onPlayerItem f item = onPlayerInventory (replaceInInventory item (f item))
+onPlayerItem f item = onPlayerInventory (replaceObjInList item (f item))
 
 onPlayerItemId :: (Item -> Item) -> Id -> Player -> Player
-onPlayerItemId f itemId p = onPlayerItem f (searchItem itemId (inventory p)) p
+onPlayerItemId f itemId p = onPlayerItem f (searchObject itemId (inventory p)) p
 
 onPlayerHp :: (Int -> Int) -> Player -> Player
 onPlayerHp f p = p{hp = f (hp p)}
