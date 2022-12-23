@@ -51,7 +51,7 @@ anyOnPosition hasFunctions pos level = any (\f -> f pos level) hasFunctions
 -- | De speler kan naar een bepaalde positie gaan, 
 -- | als daar geen entity, item of muur is
 canMoveTo :: (X, Y) -> Level -> Bool
-canMoveTo pos = not . anyOnPosition [hasEntity, hasItem, hasTile wall, hasTile end] pos
+canMoveTo pos = not . anyOnPosition [hasEntity, hasItem, hasTile wall, hasTile end, hasTile void] pos
 
 -- -------------------------------------------------
 --

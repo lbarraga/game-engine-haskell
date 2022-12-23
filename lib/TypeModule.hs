@@ -146,11 +146,12 @@ onItemValue    f item = item{itemValue    = f (itemValue item)}
 -- Constanten en functies die veel modules nodig hebben.
 -- --------------------------------------------------------
 
-wall, empty, speler, end :: Char
+wall, empty, speler, end, void :: Char
 wall   = '*'
 empty  = '.'
 speler = 's'
 end    = 'e'
+void   = 'x'
 
 replaceObjInList :: Eq a => a -> a -> [a] -> [a]
 replaceObjInList from to l = replaceAtIndex index to l

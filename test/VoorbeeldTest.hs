@@ -10,6 +10,7 @@ import GameModule
 import GameModule (canMoveGame)
 import GameModule (hasNextLevel)
 import TypeModule (UseTime(Infinite))
+import PlayerModule (inventoryContains, inventoryFull)
 
 testGame :: Game
 testGame = Game {player = Player {hp = 50, inventory = [Item {itemId = "dagger", itemX = 0, itemY = 0, itemName = "Dolk", itemDescription = "Basis schade tegen monsters", itemUseTimes = Infinite, itemValue = 10, itemActions = []}]}, levels = [Level {layout = ["********","*......*","*.....e*","*s.....*","*......*","********"], items = [Item {itemId = "sword", itemX = 2, itemY = 3, itemName = "Zwaard", itemDescription = "Meer schade tegen monsters", itemUseTimes = Infinite, itemValue = 25, itemActions = [Action {conditions = [Function {fName = "not", arguments = ArgFunction (Function {fName = "inventoryFull", arguments = Ids []})}], action = Function {fName = "retrieveItem", arguments = Ids ["sword"]}},Action {conditions = [], action = Function {fName = "leave", arguments = Ids []}}]},Item {itemId = "potion", itemX = 3, itemY = 1, itemName = "Levensbrouwsel", itemDescription = "Geeft een aantal levenspunten terug", itemUseTimes = Finite 1, itemValue = 50, itemActions = [Action {conditions = [Function {fName = "not", arguments = ArgFunction (Function {fName = "inventoryFull", arguments = Ids []})}], action = Function {fName = "retrieveItem", arguments = Ids ["potion"]}},Action {conditions = [], action = Function {fName = "leave", arguments = Ids []}}]}], entities = [Entity {entityId = "devil", entityX = 4, entityY = 3, entityName = "Duivel", entityDescription = "Een monster uit de hel", entityDirection = Nothing, entityHp = Just 50, entityValue = Just 5, entityActions = [Action {conditions = [Function {fName = "inventoryContains", arguments = Ids ["potion"]}], action = Function {fName = "increasePlayerHp", arguments = Ids ["potion"]}},Action {conditions = [Function {fName = "inventoryContains", arguments = Ids ["sword"]}], action = Function {fName = "decreaseHp", arguments = Ids ["devil","sword"]}},Action {conditions = [], action = Function {fName = "decreaseHp", arguments = Ids ["devil","dagger"]}},Action {conditions = [], action = Function {fName = "leave", arguments = Ids []}}]}]}], backup = Nothing, panelMode = PanelMode {status = Off, selectorPos = 0, panelActions = [], actionEntity = Nothing}}
@@ -70,6 +71,18 @@ main = hspec $ do
         (getName (getItem "potion" testGame))  `shouldBe` "Levensbrouwsel"
 
 
+    it "Player has a dagger in inventory" $ do
+        inventoryContains "dagger" (player testGame) `shouldBe` True
+
+    it "Player does not have a sword" $ do
+        inventoryContains "sword" (player testGame) `shouldBe` False
+
+    it "Enventory of player is not full at start" $ do
+        inventoryFull (player testGame)  `shouldBe` False
+
+
+    it "Level has a potion" $ do
+        (getName (getItem "potion" testGame))  `shouldBe` "Levensbrouwsel"
 
 
 

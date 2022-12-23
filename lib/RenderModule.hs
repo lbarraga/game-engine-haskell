@@ -101,7 +101,8 @@ renderTile :: AssetMap -> Char -> Picture
 renderTile am '.' = am ! emptyName
 renderTile am '*' = am ! wallName
 renderTile am 's' = pictures [am ! emptyName, am ! playerName]
-renderTile am 'e' = pictures [am ! emptyName, am ! endName] 
+renderTile am 'e' = pictures [am ! emptyName, am ! endName]
+renderTile _  'x' = blank 
 renderTile _  _ = error "no tile"
 
 -- | Render een Lvel bestaande uit de layout, items en entities.

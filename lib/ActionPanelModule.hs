@@ -1,7 +1,8 @@
 module ActionPanelModule where 
 
 import TypeModule
-import TypeModule (PanelMode, Function (Function), defaultPanel)
+import TypeModule (PanelMode, Entity)
+import Data.Function (const)
 
 -- | Zet het actie paneel aan met een lijst van acties en misschien 
 -- | een entity waarop de actie word uitgevoerd
