@@ -3,8 +3,8 @@
 
 Welcome to this small yet capable RPG tile engine crafted with Haskell. This project provides a simple foundation to build tile-based RPG adventures using JSON-like configuration files stored in a `levels` folder.
 
-![](imgs/game.png)
-![](imgs/big.png)
+![](readme_imgs/game.png)
+![](readme_imgs/big.png)
 
 ## Features
 
